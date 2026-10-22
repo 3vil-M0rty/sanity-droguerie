@@ -1,0 +1,1381 @@
+const express = require("express");
+const mongoose = require("mongoose");
+const multer = require("multer");
+
+const { loadTree, effectiveAccounting } = require("../services/categoryTree");
+const router = express.Router();
+
+const PurchaseOrder = require("../models/PurchaseOrder");
+const PurchaseRequest = require("../models/PurchaseRequest");
+const Supplier = require("../models/Supplier");
+const Product = require("../models/Product");
+const Company = require("../models/Company");
+const { fetchLogoBuffer } = require("../services/pdfHelpers");
+const { generatePurchaseOrderPdf } = require("../services/purchasingPdfService");
+const InventoryCategory = require("../models/InventoryCategory");
+const auth = require("../middleware/auth");
+const { guard } = require("../middleware/permissionGuard");
+const { ownsCompany } = require("../permissions/permissions");
+const { ROUTE_PERMISSIONS } = require("../config/routePermissions");
+const { requirePurchasingAccess } = require("../middleware/permissionMiddleware");
+const { logAudit } = require("../services/auditLogger");
+const { applyMovement } = require("../services/inventoryService");
+const stock = require("../services/stockService");
+const landedCost = require("../services/landedCost");
+const replenishment = require("../services/replenishmentService");
+const InventoryMovement = require("../models/InventoryMovement");
+const { uploadPrivateFile, deleteFile } = require("../services/storageService");
+const { createWithNumber } = require("../services/documentNumberService");
+const { notify, notifyMany, getProductionRecipientIds } = require("../services/notificationService");
+const Department = require("../models/Department");
+const User = require("../models/User");
+const Employee = require("../models/Employee");
+const { sendMail, pdfToBuffer, isEmail } = require("../services/mailService");
+const reports = require("../services/purchasingReports");
+const exportsXlsx = require("../services/purchasingExports");
+const PurchaseRequestModel = require("../models/PurchaseRequest");
+const { OPEN } = require("../services/purchaseRequestWorkflow");
+const {
+  round2, lineOutstanding, validateReception, applyReceptionToLines, deriveReceptionStatus,
+  derivePaymentStatus, allocateInvoices, computeTotals,
+} = require("../services/purchaseOrderCalc");
+
+/**
+ * ============================================================
+ * PURCHASE ORDERS (bons de commande) — purchasing module
+ * ============================================================
+ * draft -> sent -> partially_received -> received   (or cancelled)
+ * Receptions (with the supplier's BL number) and returns move stock
+ * for lines linked to an inventory article. Invoices and BL scans can
+ * be uploaded; payments are recorded with their method.
+ * ============================================================
+ */
+
+// Fine-grained permissions of every endpoint: config/routePermissions.js
+router.use(auth, guard(ROUTE_PERMISSIONS.purchaseOrders));
+router.use(auth, requirePurchasingAccess);
+
+const uploadDoc = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = ["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.mimetype);
+    cb(ok ? null : new Error("Upload a PDF or an image (JPG, PNG, WEBP)"), ok);
+  },
+});
+const withUpload = (req, res, next) =>
+  uploadDoc.single("file")(req, res, (err) => (err ? res.status(400).json({ success: false, message: err.message }) : next()));
+
+const bad = (res, message, status = 400) => res.status(status).json({ success: false, message });
+const isId = (v) => mongoose.Types.ObjectId.isValid(v);
+// Goods received (fully or partly) but no supplier invoice recorded yet
+// — credit notes don't count as an invoice.
+const MISSING_INVOICE_QUERY = {
+  status: { $in: ["partially_received", "received"] },
+  invoices: { $not: { $elemMatch: { type: { $ne: "credit_note" } } } },
+};
+
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// ---------- purchase order approval ----------
+// Orders at or above Company.settings.purchaseApprovalThreshold (TTC)
+// need an approver before they can be marked as ordered.
+const approvalThreshold = (company) => Number(company?.settings?.purchaseApprovalThreshold) || 0;
+// Always computed from the lines — never trust a stored total that may
+// not have been recalculated yet.
+const orderTotalTTC = (order) => computeTotals(order.lines || []).totalTTC;
+function needsApproval(order, company) {
+  const threshold = approvalThreshold(company);
+  const total = orderTotalTTC(order);
+  if (threshold <= 0 || total < threshold) return false;
+  const approved = order.approval?.approvedAt && order.approval.approvedAmount !== null
+    && order.approval.approvedAmount >= total - 0.005;
+  return !approved;
+}
+
+/** Departments with the purchasing module whose manager is `employeeId`. */
+async function managesPurchasing(user, companyId) {
+  const ids = user.managedDepartments || [];
+  if (!ids.length) return false;
+  return !!(await Department.exists({ _id: { $in: ids }, company: companyId, permissionKey: "purchasing" }));
+}
+
+/** Admins, the company owner, and the purchasing department's manager. */
+async function canApprove(user, company) {
+  if (user.role === "admin") return true;
+  if (user.role === "owner" && ownsCompany(user, company)) return true;
+  return managesPurchasing(user, company._id);
+}
+
+async function approverIds(company, excludeUserId) {
+  const ids = new Set();
+  (await User.find({ role: "admin" }).select("_id").lean()).forEach((u) => ids.add(String(u._id)));
+  if (company.owner) ids.add(String(company.owner));
+  const depts = await Department.find({ company: company._id, permissionKey: "purchasing", manager: { $ne: null } }).select("manager").lean();
+  if (depts.length) {
+    const users = await User.find({ employee: { $in: depts.map((d) => d.manager) } }).select("_id").lean();
+    users.forEach((u) => ids.add(String(u._id)));
+  }
+  ids.delete(String(excludeUserId || ""));
+  return [...ids];
+}
+
+async function requestApproval(order, company, userId) {
+  order.status = "pending_approval";
+  order.approval = { ...(order.approval?.toObject?.() || order.approval || {}), requestedAt: new Date(), requestedBy: userId,
+    approvedAt: null, approvedBy: null, approvedAmount: null, rejectedAt: null, rejectedBy: null, rejectReason: undefined };
+  await notifyMany(await approverIds(company, userId), {
+    type: "purchase_request_pending",
+    title: "Purchase order awaiting approval",
+    message: `${order.number} — ${round2(order.totalTTC)} MAD TTC`,
+    link: `/purchasing/orders/${order._id}`,
+  });
+}
+
+async function storeFile(file, companyId) {
+  if (!file) return undefined;
+  // Private: opened only through a short-lived link (routes/files.js).
+  return uploadPrivateFile(file.buffer, `companies/${companyId}/purchasing`, file.originalname, file.mimetype, { companyId });
+}
+
+// Optional receiving warehouse: null when not given, false when the id
+// isn't a warehouse of this company.
+async function warehouseFor(warehouseId, companyId) {
+  if (!warehouseId) return null;
+  const Warehouse = require("../models/Warehouse");
+  if (!isId(warehouseId)) return false;
+  const w = await Warehouse.findOne({ _id: warehouseId, company: companyId }).select("_id").lean();
+  return w ? w._id : false;
+}
+
+const DETAIL_POPULATE = [
+  { path: "warehouse", select: "code name" },
+  { path: "supplier", select: "name contactName phone email paymentTerms paymentDays" },
+  { path: "lines.product", select: "name internalReference unit quantity tracking hasExpiry" },
+  { path: "purchaseRequests", select: "requestedQuantity status product", populate: { path: "product", select: "name" } },
+  { path: "receptions.by", select: "firstName lastName" },
+  { path: "payments.by", select: "firstName lastName" },
+  { path: "invoices.by", select: "firstName lastName" },
+  { path: "createdBy", select: "firstName lastName" },
+];
+
+/** Cleans incoming lines and checks linked articles belong to the company. */
+async function normalizeLines(rawLines, companyId) {
+  if (!Array.isArray(rawLines) || rawLines.length === 0) return { error: "Add at least one line" };
+  const lines = [];
+  for (const raw of rawLines) {
+    const quantity = Number(raw.quantity);
+    const unitPrice = Number(raw.unitPrice);
+    if (!Number.isFinite(quantity) || quantity <= 0) return { error: "Every line needs a quantity greater than zero" };
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) return { error: "Every line needs a valid unit price" };
+    let description = String(raw.description || "").trim();
+    let unit = raw.unit;
+    let product = null;
+    if (raw.product) {
+      if (!isId(raw.product)) return { error: "Invalid article on a line" };
+      // eslint-disable-next-line no-await-in-loop
+      const doc = await Product.findOne({ _id: raw.product, company: companyId }).select("name unit");
+      if (!doc) return { error: "An article on this order doesn't belong to this company" };
+      product = doc._id;
+      description = description || doc.name;
+      unit = unit || doc.unit;
+    }
+    if (!description) return { error: "Every line needs a description or an article" };
+    lines.push({
+      product,
+      description,
+      quantity,
+      unit,
+      unitPrice,
+      vatRate: raw.vatRate === undefined || raw.vatRate === "" ? 20 : Number(raw.vatRate),
+    });
+  }
+  return { lines };
+}
+
+/** Moves linked purchase requests to `status`, with a note, and tells production. */
+async function updateLinkedRequests(order, requestIds, status, note, actorId, onlyOpen = false) {
+  if (!requestIds?.length) return;
+  const filter = { _id: { $in: requestIds }, company: order.company };
+  if (onlyOpen) filter.status = { $in: OPEN };
+  const requests = await PurchaseRequest.find(filter).populate("product", "name");
+  for (const request of requests) {
+    request.status = status;
+    request.purchaseOrder = order._id;
+    if (status === "pending") request.purchaseOrder = null;
+    request.history.push({ status, note, by: actorId });
+    // eslint-disable-next-line no-await-in-loop
+    await request.save();
+  }
+  if (requests.length) {
+    const recipients = new Set(await getProductionRecipientIds(order.company, actorId));
+    requests.forEach((r) => r.requestedBy && String(r.requestedBy) !== String(actorId) && recipients.add(String(r.requestedBy)));
+    const titles = { ordered: "Purchase request ordered", received: "Purchased item received", pending: "Purchase order cancelled" };
+    await notifyMany([...recipients], {
+      type: "purchase_request_reviewed",
+      title: titles[status] || "Update on a purchase request",
+      message: `${order.number}: ${requests.map((r) => `${r.requestedQuantity} × ${r.product?.name || "article"}`).join(", ")}${note ? ` — ${note}` : ""}`,
+      link: "/stock/purchase-requests",
+    });
+  }
+  return requests;
+}
+
+// ======================================================
+// LIST (the recap table)
+// GET /api/purchase-orders?companyId=&status=&paymentStatus=&supplier=&search=&from=&to=&page=&limit=
+// ======================================================
+router.get("/", async (req, res) => {
+  try {
+    const { companyId, status, paymentStatus, supplier, search, from, to, late, missingInvoice, page = 1, limit = 20 } = req.query;
+    if (!companyId || !isId(companyId)) return bad(res, "A valid companyId is required");
+
+    const filter = { company: companyId };
+    if (status) filter.status = { $in: String(status).split(",") };
+    // received but not invoiced yet
+    if (missingInvoice === "true") Object.assign(filter, MISSING_INVOICE_QUERY);
+    // late = ordered, not fully received, expected delivery date passed
+    if (late === "true") {
+      filter.status = { $in: ["sent", "partially_received"] };
+      filter.expectedDate = { $ne: null, $lt: new Date() };
+    }
+    if (paymentStatus) filter.paymentStatus = { $in: String(paymentStatus).split(",") };
+    if (supplier && isId(supplier)) filter.supplier = supplier;
+    if (search) filter.number = new RegExp(escapeRegex(search.trim()), "i");
+    if (from || to) {
+      filter.date = {};
+      if (from) filter.date.$gte = new Date(from);
+      if (to) filter.date.$lte = new Date(`${to}T23:59:59`);
+    }
+
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const [orders, total] = await Promise.all([
+      PurchaseOrder.find(filter)
+        .select("number supplier date expectedDate status totalHT totalTTC amountPaid paymentStatus lines.quantity lines.receivedQuantity lines.returnedQuantity invoices.number invoices.type")
+        .populate("supplier", "name")
+        .sort({ date: -1, number: -1 })
+        .skip((currentPage - 1) * currentLimit)
+        .limit(currentLimit),
+      PurchaseOrder.countDocuments(filter),
+    ]);
+    res.json({
+      success: true,
+      data: orders,
+      pagination: { total, page: currentPage, limit: currentLimit, pages: Math.ceil(total / currentLimit) || 1 },
+    });
+  } catch (error) {
+    console.error("GET purchase orders error:", error);
+    res.status(500).json({ success: false, message: "Error fetching purchase orders", error: error.message });
+  }
+});
+
+// ======================================================
+// SUMMARY (recap figures)  GET /api/purchase-orders/summary?companyId=
+// ======================================================
+router.get("/summary", async (req, res) => {
+  try {
+    const { companyId } = req.query;
+    if (!companyId || !isId(companyId)) return bad(res, "A valid companyId is required");
+    const orders = await PurchaseOrder.find({ company: companyId, status: { $ne: "cancelled" } })
+      .select("status totalTTC amountPaid amountDue paymentStatus invoices payments").lean();
+    const now = new Date();
+    const byStatus = {};
+    let totalOrdered = 0;
+    let totalPaid = 0;
+    let overdueOrders = 0;
+    for (const o of orders) {
+      byStatus[o.status] = (byStatus[o.status] || 0) + 1;
+      if (o.status !== "draft") totalOrdered += o.totalTTC || 0;
+      totalPaid += o.amountPaid || 0;
+      if (allocateInvoices(o, now).some((r) => r.overdue)) overdueOrders += 1;
+    }
+    const missingInvoice = await PurchaseOrder.countDocuments({ company: companyId, ...MISSING_INVOICE_QUERY });
+    res.json({
+      success: true,
+      data: {
+        missingInvoice,
+        byStatus,
+        totalOrdered: round2(totalOrdered),
+        totalPaid: round2(totalPaid),
+        remainingToPay: round2(totalOrdered - totalPaid),
+        overdueOrders,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error building the summary", error: error.message });
+  }
+});
+
+// ======================================================
+// REPORTS — files for the accountant and the tax return
+// GET /api/purchase-orders/reports/vat-deductions?companyId=&from=&to=&format=xlsx|json
+// GET /api/purchase-orders/reports/accounting?companyId=&from=&to=
+// GET /api/purchase-orders/reports/aged-balance?companyId=&format=xlsx|json
+// GET /api/purchase-orders/reports/restock?companyId=
+// ======================================================
+const sendXlsx = (res, buffer, filename) => {
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(buffer);
+};
+async function loadReportOrders(companyId) {
+  const orders = await PurchaseOrder.find({ company: companyId, status: { $ne: "cancelled" } })
+    .select("number status supplier lines totalHT totalVAT totalTTC invoices payments")
+    .populate("supplier", "name identifiantFiscal ice")
+    // each line's article category carries its accounting account
+    .populate({ path: "lines.product", select: "category", populate: { path: "category", select: "accountingAccount isFixedAsset" } })
+    .lean();
+  // A sub-category without its own account uses its parent's.
+  const accounting = effectiveAccounting(await loadTree(companyId));
+  for (const o of orders) {
+    for (const l of o.lines || []) {
+      const cat = l.product?.category;
+      const eff = cat?._id ? accounting.get(String(cat._id)) : null;
+      if (eff) Object.assign(cat, eff);
+    }
+  }
+  return orders;
+}
+
+router.get("/reports/vat-deductions", async (req, res) => {
+  try {
+    const { companyId, from, to, format } = req.query;
+    if (!companyId || !isId(companyId)) return bad(res, "A valid companyId is required");
+    const orders = await loadReportOrders(companyId);
+    const rows = reports.vatDeductionRows(orders, { from, to });
+    // payments with no invoice to deduct from — shown so the report
+    // never looks mysteriously empty
+    const withoutInvoice = reports.paymentsWithoutInvoice(orders, { from, to });
+    if (format !== "xlsx") return res.json({ success: true, data: rows, withoutInvoice });
+    const company = await Company.findById(companyId).select("name ice taxId");
+    sendXlsx(res, await exportsXlsx.vatDeductionXlsx(rows, { company, from, to, withoutInvoice }), `releve-deductions-tva${from ? `-${from}` : ""}.xlsx`);
+  } catch (error) {
+    console.error("GET vat deductions error:", error);
+    res.status(500).json({ success: false, message: "Error building the VAT deduction listing", error: error.message });
+  }
+});
+
+router.get("/reports/accounting", async (req, res) => {
+  try {
+    const { companyId, from, to } = req.query;
+    if (!companyId || !isId(companyId)) return bad(res, "A valid companyId is required");
+    const company = await Company.findById(companyId).select("name settings");
+    const entries = reports.accountingEntries(await loadReportOrders(companyId), {
+      from, to, accounts: { purchases: company?.settings?.purchaseDefaultAccount },
+    });
+    sendXlsx(res, await exportsXlsx.accountingXlsx(entries, { company, from, to }), `journal-achats${from ? `-${from}` : ""}.xlsx`);
+  } catch (error) {
+    console.error("GET accounting export error:", error);
+    res.status(500).json({ success: false, message: "Error building the accounting export", error: error.message });
+  }
+});
+
+router.get("/reports/aged-balance", async (req, res) => {
+  try {
+    const { companyId, format } = req.query;
+    if (!companyId || !isId(companyId)) return bad(res, "A valid companyId is required");
+    const rows = reports.agedBalance(await loadReportOrders(companyId));
+    if (format !== "xlsx") return res.json({ success: true, data: rows });
+    const company = await Company.findById(companyId).select("name");
+    sendXlsx(res, await exportsXlsx.agedBalanceXlsx(rows, { company }), "balance-agee-fournisseurs.xlsx");
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error building the aged balance", error: error.message });
+  }
+});
+
+// PURCHASE FORECAST  GET /api/purchase-orders/reports/forecast?companyId=&coverDays=&safetyDays=
+//                   POST /api/purchase-orders/from-forecast { companyId, lines: [{ product, quantity, supplier, unitPrice? }], warehouse? }
+router.get("/reports/forecast", async (req, res) => {
+  try {
+    if (!isId(req.query.companyId)) return bad(res, "A valid companyId is required");
+    const n = (v, d, max) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.min(Number(v), max) : d);
+    res.json({ success: true, data: await replenishment.forecast(req.query.companyId, { coverDays: n(req.query.coverDays, 30, 365), safetyDays: n(req.query.safetyDays, 7, 90), defaultLead: n(req.query.defaultLead, 15, 365) }) });
+  } catch (error) {
+    console.error("GET forecast error:", error);
+    res.status(500).json({ success: false, message: "Error building the purchase forecast", error: error.message });
+  }
+});
+
+router.post("/from-forecast", async (req, res) => {
+  try {
+    const companyId = req.body?.companyId;
+    if (!isId(companyId)) return bad(res, "A valid companyId is required");
+    const warehouse = await warehouseFor(req.body.warehouse, companyId);
+    if (warehouse === false) return bad(res, "Warehouse not found in this company");
+    const orders = await replenishment.createOrders(companyId, req.body.lines, { warehouse, actorId: req.user.id });
+    for (const o of orders) await logAudit(req, { company: companyId, action: "create", resourceType: "PurchaseOrder", resourceId: o._id, resourceLabel: `${o.number} — ${o.supplier.name} (prévision)` });
+    res.status(201).json({ success: true, data: orders });
+  } catch (error) {
+    if (error.status) return bad(res, error.message, error.status);
+    console.error("POST from forecast error:", error);
+    res.status(500).json({ success: false, message: "Error creating the purchase orders", error: error.message });
+  }
+});
+
+router.get("/reports/restock", async (req, res) => {
+  try {
+    const { companyId } = req.query;
+    if (!companyId || !isId(companyId)) return bad(res, "A valid companyId is required");
+    const [products, openOrders, openRequests] = await Promise.all([
+      Product.find({ company: companyId }).select("name internalReference unit quantity threshold prices").lean(),
+      PurchaseOrder.find({ company: companyId, status: { $in: ["draft", "pending_approval", "sent", "partially_received"] } }).select("status lines").lean(),
+      PurchaseRequestModel.find({ company: companyId, status: { $in: ["pending", "delayed"] } }).select("product requestedQuantity").lean(),
+    ]);
+    res.json({ success: true, data: reports.restockSuggestions(products, openOrders, openRequests) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error building restocking suggestions", error: error.message });
+  }
+});
+
+// ======================================================
+// SUPPLIER INVOICES — the échéancier (every invoice, every order)
+// GET /api/purchase-orders/invoices?companyId=&filter=unpaid|overdue|all&supplier=
+// ======================================================
+router.get("/invoices", async (req, res) => {
+  try {
+    const { companyId, filter = "unpaid", supplier } = req.query;
+    if (!companyId || !isId(companyId)) return bad(res, "A valid companyId is required");
+    const query = { company: companyId, status: { $ne: "cancelled" }, "invoices.0": { $exists: true } };
+    if (supplier && isId(supplier)) query.supplier = supplier;
+    const orders = await PurchaseOrder.find(query)
+      .select("number supplier invoices payments")
+      .populate("supplier", "name")
+      .lean();
+
+    const now = new Date();
+    let rows = [];
+    for (const order of orders) {
+      for (const r of allocateInvoices(order, now)) {
+        rows.push({
+          orderId: order._id,
+          orderNumber: order.number,
+          supplier: order.supplier,
+          invoiceId: r.invoice._id,
+          number: r.invoice.number,
+          date: r.invoice.date,
+          dueDate: r.invoice.dueDate,
+          file: r.invoice.file,
+          amount: r.amount,
+          paid: r.paid,
+          remaining: r.remaining,
+          status: r.status,
+          overdue: r.overdue,
+          daysOverdue: r.daysOverdue,
+          termDays: r.termDays,
+          legal: r.legal,
+        });
+      }
+    }
+    if (filter === "unpaid") rows = rows.filter((r) => r.status !== "paid");
+    if (filter === "overdue") rows = rows.filter((r) => r.overdue);
+    rows.sort((a, b) => (a.dueDate ? new Date(a.dueDate) : Infinity) - (b.dueDate ? new Date(b.dueDate) : Infinity));
+
+    const open = rows.filter((r) => r.status !== "paid");
+    res.json({
+      success: true,
+      data: rows,
+      totals: {
+        remaining: round2(open.reduce((s, r) => s + r.remaining, 0)),
+        overdue: round2(open.filter((r) => r.overdue).reduce((s, r) => s + r.remaining, 0)),
+        overdueCount: open.filter((r) => r.overdue).length,
+        dueIn30: round2(open.filter((r) => !r.overdue && r.dueDate && new Date(r.dueDate) - now <= 30 * 864e5).reduce((s, r) => s + r.remaining, 0)),
+      },
+    });
+  } catch (error) {
+    console.error("GET supplier invoices error:", error);
+    res.status(500).json({ success: false, message: "Error fetching supplier invoices", error: error.message });
+  }
+});
+
+// ======================================================
+// ARTICLE HISTORY — every order containing an article
+// GET /api/purchase-orders/by-product/:productId
+// ======================================================
+router.get("/by-product/:productId", async (req, res) => {
+  try {
+    const { productId } = req.params;
+    if (!isId(productId)) return bad(res, "Invalid article");
+    const orders = await PurchaseOrder.find({ "lines.product": productId })
+      .select("number date status supplier paymentStatus lines")
+      .populate("supplier", "name")
+      .sort({ date: -1 })
+      .lean();
+    const rows = [];
+    for (const order of orders) {
+      for (const line of order.lines) {
+        if (String(line.product) !== String(productId)) continue;
+        rows.push({
+          orderId: order._id,
+          number: order.number,
+          date: order.date,
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+          supplier: order.supplier,
+          quantity: line.quantity,
+          unit: line.unit,
+          unitPrice: line.unitPrice,
+          receivedQuantity: line.receivedQuantity || 0,
+          returnedQuantity: line.returnedQuantity || 0,
+          outstanding: order.status === "cancelled" ? 0 : lineOutstanding(line),
+        });
+      }
+    }
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching the article's orders", error: error.message });
+  }
+});
+
+// ======================================================
+// PDF  GET /api/purchase-orders/:id/pdf — the bon de commande to send
+// ======================================================
+// Streams the document inline. The browser-side filename is set by the
+// frontend (downloadBlob); this header name is only an ASCII fallback.
+router.get("/:id/pdf", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id)
+      .populate("supplier")
+      .populate("lines.product", "name internalReference unit prices");
+    if (!order) return bad(res, "Purchase order not found", 404);
+    const company = await Company.findById(order.company);
+    if (!company) return bad(res, "Company not found", 404);
+
+    const logoBuffer = await fetchLogoBuffer(company);
+    const doc = generatePurchaseOrderPdf({ order, company, supplier: order.supplier, logoBuffer });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${order.number}.pdf"`);
+    doc.pipe(res);
+    doc.end();
+  } catch (error) {
+    console.error("GET purchase order PDF error:", error);
+    res.status(500).json({ success: false, message: "Error generating the purchase order PDF", error: error.message });
+  }
+});
+
+// ======================================================
+// DETAIL  GET /api/purchase-orders/:id
+// ======================================================
+router.get("/:id", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id).populate(DETAIL_POPULATE);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    res.json({ success: true, data: order });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching purchase order", error: error.message });
+  }
+});
+
+// ======================================================
+// CREATE  POST /api/purchase-orders
+// { company, supplier, date?, expectedDate?, lines, notes?, send?, purchaseRequestIds? }
+// ======================================================
+router.post("/", async (req, res) => {
+  try {
+    const { company, supplier, date, expectedDate, notes, send, purchaseRequestIds } = req.body;
+    if (!company || !isId(company)) return bad(res, "A valid company is required");
+    const warehouse = await warehouseFor(req.body.warehouse, company);
+    if (warehouse === false) return bad(res, "Warehouse not found in this company");
+    if (!supplier || !isId(supplier)) return bad(res, "Choose a supplier");
+    const supplierDoc = await Supplier.findOne({ _id: supplier, company });
+    if (!supplierDoc) return bad(res, "Supplier not found in this company");
+
+    const { lines, error } = await normalizeLines(req.body.lines, company);
+    if (error) return bad(res, error);
+
+    const order = await createWithNumber(PurchaseOrder, {
+      company,
+      supplier,
+      date: date || new Date(),
+      expectedDate: expectedDate || null,
+      lines,
+      notes,
+      warehouse: warehouse || null,
+      status: send ? "sent" : "draft",
+      createdBy: req.user.id,
+      updatedBy: req.user.id,
+    }, "BC");
+
+    const requestIds = (Array.isArray(purchaseRequestIds) ? purchaseRequestIds : []).filter(isId);
+    const linked = await updateLinkedRequests(order, requestIds, "ordered", null, req.user.id, true);
+    if (linked?.length) {
+      order.purchaseRequests = linked.map((r) => r._id);
+      await order.save();
+    }
+
+    await logAudit(req, { company, action: "create", resourceType: "PurchaseOrder", resourceId: order._id, resourceLabel: `${order.number} — ${supplierDoc.name}` });
+    res.status(201).json({ success: true, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    console.error("POST purchase order error:", error);
+    res.status(500).json({ success: false, message: "Error creating purchase order", error: error.message });
+  }
+});
+
+// ======================================================
+// EDIT  PUT /api/purchase-orders/:id — header + lines, only before any reception
+// ======================================================
+router.put("/:id", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    if (!["draft", "sent"].includes(order.status) || order.receptions.length) {
+      return bad(res, "An order can only be edited before anything has been received");
+    }
+
+    const { supplier, date, expectedDate, notes } = req.body;
+    if (supplier !== undefined) {
+      if (!isId(supplier) || !(await Supplier.exists({ _id: supplier, company: order.company }))) return bad(res, "Supplier not found in this company");
+      order.supplier = supplier;
+    }
+    if (req.body.lines !== undefined) {
+      const { lines, error } = await normalizeLines(req.body.lines, order.company);
+      if (error) return bad(res, error);
+      order.lines = lines;
+    }
+    if (date !== undefined) order.date = date;
+    if (expectedDate !== undefined) order.expectedDate = expectedDate || null;
+    if (notes !== undefined) order.notes = notes;
+    order.updatedBy = req.user.id;
+    await order.validate(); // recompute totals before the approval check
+    // Loophole guard: an order approved at 10 000 then edited up to
+    // 100 000 must be approved again.
+    let message;
+    if (order.status === "sent") {
+      const company = await Company.findById(order.company).select("owner settings");
+      if (needsApproval(order, company)) {
+        await requestApproval(order, company, req.user.id);
+        message = "approval_requested";
+      }
+    }
+    await order.save();
+    res.json({ success: true, message, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    console.error("PUT purchase order error:", error);
+    res.status(500).json({ success: false, message: "Error updating purchase order", error: error.message });
+  }
+});
+
+// ======================================================
+// RECEIVING WAREHOUSE  PATCH /api/purchase-orders/:id/warehouse  { warehouse: id | null }
+// ======================================================
+router.patch("/:id/warehouse", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    const warehouse = await warehouseFor(req.body.warehouse, order.company);
+    if (warehouse === false) return bad(res, "Warehouse not found in this company");
+    order.warehouse = warehouse || null;
+    order.updatedBy = req.user.id;
+    await order.save();
+    res.json({ success: true, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    console.error("PATCH purchase order warehouse error:", error);
+    res.status(500).json({ success: false, message: "Error updating the warehouse", error: error.message });
+  }
+});
+
+// ======================================================
+// STATUS  PATCH /api/purchase-orders/:id/status  { status: "sent"|"cancelled", reason? }
+// ======================================================
+router.patch("/:id/status", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    const { status, reason } = req.body;
+
+    let message;
+    if (status === "sent") {
+      if (order.status !== "draft") return bad(res, "Only a draft can be marked as sent");
+      const company = await Company.findById(order.company).select("owner settings");
+      if (needsApproval(order, company)) {
+        await requestApproval(order, company, req.user.id);
+        message = "approval_requested";
+      } else {
+        order.status = "sent";
+      }
+    } else if (status === "cancelled") {
+      if (!["draft", "pending_approval", "sent"].includes(order.status) || order.receptions.length) {
+        return bad(res, "An order that has already been (partly) received can't be cancelled — record a return instead");
+      }
+      if (!reason || !String(reason).trim()) return bad(res, "Please give the reason for cancelling");
+      order.status = "cancelled";
+      order.cancelReason = String(reason).trim();
+      // The requests it covered go back to the purchasing queue.
+      await updateLinkedRequests(order, order.purchaseRequests, "pending", `Commande ${order.number} annulée : ${order.cancelReason}`, req.user.id);
+    } else {
+      return bad(res, 'status must be "sent" or "cancelled"');
+    }
+    order.updatedBy = req.user.id;
+    await order.save();
+    res.json({ success: true, message, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    console.error("PATCH purchase order status error:", error);
+    res.status(500).json({ success: false, message: "Error updating the order status", error: error.message });
+  }
+});
+
+// ======================================================
+// APPROVAL  PATCH /api/purchase-orders/:id/approve
+//           PATCH /api/purchase-orders/:id/reject-approval  { reason }
+// ======================================================
+async function decideApproval(req, res, approve) {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    if (order.status !== "pending_approval") return bad(res, "This order isn't waiting for approval");
+    const company = await Company.findById(order.company).select("owner settings name");
+    if (!(await canApprove(req.user, company))) {
+      return bad(res, "Only an admin, the company owner or the purchasing manager can approve purchase orders", 403);
+    }
+    const isOwnRequest = String(order.approval?.requestedBy) === String(req.user.id);
+    if (isOwnRequest && req.user.role !== "admin" && req.user.role !== "owner") {
+      return bad(res, "You can't approve or refuse your own purchase order", 403);
+    }
+
+    const reason = String(req.body?.reason || "").trim();
+    if (!approve && !reason) return bad(res, "Please give the reason for refusing");
+
+    if (approve) {
+      order.status = "sent";
+      order.approval.approvedAt = new Date();
+      order.approval.approvedBy = req.user.id;
+      order.approval.approvedAmount = orderTotalTTC(order);
+    } else {
+      order.status = "draft";
+      order.approval.rejectedAt = new Date();
+      order.approval.rejectedBy = req.user.id;
+      order.approval.rejectReason = reason.slice(0, 500);
+    }
+    order.updatedBy = req.user.id;
+    await order.save();
+
+    if (order.approval.requestedBy && !isOwnRequest) {
+      await notify(order.approval.requestedBy, {
+        type: "purchase_request_reviewed",
+        title: approve ? "Purchase order approved" : "Purchase order refused",
+        message: approve ? `${order.number} can be sent to the supplier` : `${order.number} — ${reason}`,
+        link: `/purchasing/orders/${order._id}`,
+      });
+    }
+    await logAudit(req, { company: order.company, action: "review", resourceType: "PurchaseOrder", resourceId: order._id,
+      resourceLabel: `${order.number} — ${approve ? "approuvé" : `refusé : ${reason}`}` });
+    res.json({ success: true, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    console.error("PATCH purchase order approval error:", error);
+    res.status(500).json({ success: false, message: "Error recording the approval", error: error.message });
+  }
+}
+router.patch("/:id/approve", (req, res) => decideApproval(req, res, true));
+router.patch("/:id/reject-approval", (req, res) => decideApproval(req, res, false));
+
+// ======================================================
+// EMAIL THE BON DE COMMANDE  POST /api/purchase-orders/:id/email
+// body: { to, cc?, message? } — the PDF is attached
+// ======================================================
+router.post("/:id/email", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id)
+      .populate("supplier")
+      .populate("lines.product", "name internalReference unit prices");
+    if (!order) return bad(res, "Purchase order not found", 404);
+    if (["draft", "pending_approval", "cancelled"].includes(order.status)) {
+      return bad(res, "Only an order marked as ordered can be sent to the supplier");
+    }
+    const to = String(req.body?.to || "").trim();
+    const cc = String(req.body?.cc || "").trim();
+    if (!isEmail(to)) return bad(res, "Enter a valid recipient email");
+    if (cc && !cc.split(",").every((x) => isEmail(x))) return bad(res, "Invalid CC email");
+
+    const company = await Company.findById(order.company);
+    const logoBuffer = await fetchLogoBuffer(company);
+    const pdf = await pdfToBuffer(generatePurchaseOrderPdf({ order, company, supplier: order.supplier, logoBuffer }));
+    const subject = `Bon de commande ${order.number} — ${company.name}`;
+    const text = String(req.body?.message || "").trim()
+      || `Bonjour,\n\nVeuillez trouver ci-joint notre bon de commande ${order.number}.\nMerci de nous confirmer sa bonne réception et le délai de livraison.\n\nCordialement,\n${company.name}`;
+
+    const result = await sendMail({ to, cc, subject, text, attachments: [{ filename: `${order.number}.pdf`, content: pdf, contentType: "application/pdf" }] },
+      { company: company._id, relatedType: "PurchaseOrder", relatedId: order._id, sentBy: req.user.id });
+    order.emails.push({ to, cc, subject, by: req.user.id, simulated: result.status === "simulated" });
+    await order.save();
+    res.json({ success: true, simulated: result.status === "simulated", data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    console.error("POST purchase order email error:", error);
+    res.status(502).json({ success: false, message: `The email could not be sent: ${error.message}` });
+  }
+});
+
+// ---------------- frais d'approche ----------------
+// multipart sends JSON as text: costs='[{"label":"Fret","amount":4000,"allocation":"weight"}]'
+function parseLanded(body) {
+  let raw = body.costs;
+  if (typeof raw === "string") {
+    try { raw = raw.trim() ? JSON.parse(raw) : []; } catch { throw new Error("Invalid landed costs"); }
+  }
+  const allocation = landedCost.METHODS.includes(body.allocation) ? body.allocation : "value";
+  const exchangeRate = body.exchangeRate === undefined || body.exchangeRate === "" ? 1 : Number(body.exchangeRate);
+  if (!(exchangeRate > 0) || exchangeRate > 1000) throw new Error("Invalid exchange rate");
+  const { costs, errors } = landedCost.normalizeCosts(raw, allocation);
+  if (errors.length) throw new Error(errors.join(" · "));
+  if (!costs.length && exchangeRate === 1) return null;
+  return { costs, allocation, exchangeRate };
+}
+
+const landedDoc = (landed, input, extra = {}) => ({
+  exchangeRate: input.exchangeRate,
+  allocation: input.allocation,
+  costs: landed.costs.map((c) => ({ ...c, ...extra })),
+  lines: landed.lines.map((l) => ({ lineId: l.key, quantity: l.quantity, goodsUnitCost: l.goodsUnitCost, extraUnitCost: l.extraUnitCost, unitCost: l.unitCost })),
+  totalGoods: landed.totalGoods,
+  totalCosts: landed.totalCosts,
+});
+
+// PREVIEW  POST /api/purchase-orders/:id/receptions/landed-preview
+//   { lines: [{ lineId, quantity }], costs, allocation, exchangeRate } — nothing saved
+router.post("/:id/receptions/landed-preview", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id).select("lines").lean();
+    if (!order) return bad(res, "Purchase order not found", 404);
+    let input;
+    try { input = parseLanded(req.body || {}) || { costs: [], allocation: "value", exchangeRate: 1 }; } catch (e) { return bad(res, e.message); }
+    const byLineId = new Map(order.lines.map((l) => [String(l._id), l]));
+    const entries = (req.body?.lines || []).filter((e) => byLineId.has(String(e.lineId)) && Number(e.quantity) > 0);
+    const products = new Map((await Product.find({ _id: { $in: entries.map((e) => byLineId.get(String(e.lineId)).product).filter(Boolean) } }).select("weightKg avgCost").lean()).map((p) => [String(p._id), p]));
+    const out = landedCost.allocate(entries.map((e) => {
+      const line = byLineId.get(String(e.lineId));
+      return { key: String(e.lineId), quantity: Number(e.quantity), unitPrice: Number(line.unitPrice) || 0, weightKg: products.get(String(line.product))?.weightKg };
+    }), input.costs, { method: input.allocation, exchangeRate: input.exchangeRate });
+    out.lines.forEach((l) => {
+      const line = byLineId.get(l.key);
+      l.description = line.description;
+      l.currentAvgCost = products.get(String(line.product))?.avgCost ?? null;
+    });
+    res.json({ success: true, data: out });
+  } catch (error) {
+    console.error("landed preview error:", error);
+    res.status(500).json({ success: false, message: "Error computing the landed costs", error: error.message });
+  }
+});
+
+// LATE COSTS  POST /api/purchase-orders/:id/receptions/:receptionId/costs  { costs, allocation }
+// The transit agent's invoice often arrives weeks after the goods. The
+// extra cost revalues what is still in stock (the part already sold
+// stays in the cost of the sales of that period).
+router.post("/:id/receptions/:receptionId/costs", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    const reception = order.receptions.id(req.params.receptionId);
+    if (!reception || reception.type !== "reception") return bad(res, "Reception not found", 404);
+    let input;
+    try { input = parseLanded({ ...req.body, exchangeRate: reception.landed?.exchangeRate || 1 }); } catch (e) { return bad(res, e.message); }
+    if (!input?.costs.length) return bad(res, "Enter at least one cost");
+    const byLineId = new Map(order.lines.map((l) => [String(l._id), l]));
+    const products = new Map((await Product.find({ _id: { $in: reception.lines.map((r) => byLineId.get(String(r.lineId))?.product).filter(Boolean) } })).map((p) => [String(p._id), p]));
+    const out = landedCost.allocate(reception.lines.map((r) => {
+      const line = byLineId.get(String(r.lineId));
+      return { key: String(r.lineId), quantity: r.quantity, unitPrice: Number(line?.unitPrice) || 0, weightKg: products.get(String(line?.product))?.weightKg };
+    }), input.costs, { method: input.allocation, exchangeRate: input.exchangeRate });
+    const revalued = [];
+    for (const l of out.lines) {
+      const product = products.get(String(byLineId.get(l.key)?.product));
+      if (!product || product.isService || !(l.extra > 0)) continue;
+      const onHand = Math.max(product.quantity || 0, 0);
+      const stillHere = Math.min(onHand, l.quantity);
+      const added = stillHere > 0 ? (l.extra * stillHere) / l.quantity : 0;
+      if (onHand > 0 && added > 0) product.avgCost = Math.round(((product.avgCost || 0) + added / onHand) * 10000) / 10000;
+      product.updatedBy = req.user.id;
+      await product.save();
+      await InventoryMovement.create({
+        company: product.company, product: product._id, type: "adjustment", quantity: 0, resultingQuantity: product.quantity || 0,
+        unitCost: l.extraUnitCost, avgCostAfter: product.avgCost || 0,
+        reason: `Frais d'approche ${order.number} (${reception.reference}) : +${l.extra.toFixed(2)} MAD${added < l.extra ? `, dont ${(l.extra - added).toFixed(2)} sur stock déjà vendu` : ""}`,
+        source: { kind: "landed_cost", id: order._id, number: order.number }, supplier: order.supplier, performedBy: req.user.id,
+      });
+      revalued.push({ product: product._id, name: product.name, extra: l.extra, onStock: Math.round(added * 100) / 100, avgCost: product.avgCost });
+    }
+    if (!reception.landed || !reception.landed.lines?.length) reception.landed = landedDoc({ ...out, costs: [] }, input);
+    for (const c of out.costs) reception.landed.costs.push({ ...c, addedLater: true, addedAt: new Date() });
+    reception.landed.totalCosts = Math.round(((reception.landed.totalCosts || 0) + out.totalCosts) * 100) / 100;
+    const byKey = new Map(out.lines.map((l) => [l.key, l]));
+    for (const l of reception.landed.lines) {
+      const x = byKey.get(String(l.lineId));
+      if (!x) continue;
+      l.extraUnitCost = Math.round(((l.extraUnitCost || 0) + x.extraUnitCost) * 10000) / 10000;
+      l.unitCost = Math.round(((l.goodsUnitCost || 0) + l.extraUnitCost) * 10000) / 10000;
+    }
+    order.markModified("receptions");
+    order.updatedBy = req.user.id;
+    await order.save();
+    await logAudit(req, { company: order.company, action: "update", resourceType: "PurchaseOrder", resourceId: order._id, resourceLabel: `${order.number} — frais d'approche ${out.totalCosts.toFixed(2)} MAD (${reception.reference})` });
+    res.json({ success: true, data: { allocation: out, revalued, order: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) } });
+  } catch (error) {
+    console.error("late landed costs error:", error);
+    res.status(500).json({ success: false, message: "Error adding the landed costs", error: error.message });
+  }
+});
+
+// ======================================================
+// RECEPTION / RETURN  POST /api/purchase-orders/:id/receptions  (multipart)
+// fields: type ("reception"|"return"), reference (BL number — required),
+//         date, notes, lines (JSON: [{ lineId, quantity }]); file: optional scan
+//         costs (JSON: frais d'approche), allocation (value|quantity|weight), exchangeRate
+// ======================================================
+router.post("/:id/receptions", withUpload, async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+
+    const type = req.body.type === "return" ? "return" : "reception";
+    const reference = String(req.body.reference || "").trim();
+    if (!reference) {
+      return bad(res, type === "reception" ? "Enter the BL (delivery note) number" : "Enter the return reference");
+    }
+    let entries;
+    try {
+      entries = typeof req.body.lines === "string" ? JSON.parse(req.body.lines) : req.body.lines;
+    } catch {
+      return bad(res, "Invalid lines");
+    }
+    entries = (entries || []).filter((e) => Number(e.quantity) > 0);
+
+    const problem = validateReception(order, type, entries);
+    if (problem) return bad(res, problem);
+    let landedInput;
+    try {
+      landedInput = type === "reception" ? parseLanded(req.body) : null;
+    } catch (e) {
+      return bad(res, e.message);
+    }
+
+    // Returns take stock OUT — check every article has enough before
+    // touching anything, so a return can't half-apply.
+    const byLineId = new Map(order.lines.map((l) => [String(l._id), l]));
+    const stockOps = [];
+    for (const entry of entries) {
+      const line = byLineId.get(String(entry.lineId));
+      if (!line.product) continue; // free-text line (service...) — no stock
+      // eslint-disable-next-line no-await-in-loop
+      const product = await Product.findById(line.product);
+      if (!product) continue;
+      if (type === "return" && product.quantity < Number(entry.quantity)) {
+        return bad(res, `"${product.name}": only ${product.quantity} in stock, can't return ${entry.quantity}`);
+      }
+      stockOps.push({ product, lineId: String(line._id), quantity: Number(entry.quantity), unitCost: Number(line.unitPrice) || 0, lots: Array.isArray(entry.lots) ? entry.lots : [] });
+    }
+    // Frais d'approche: each received line's unit cost = price × rate + its share of the costs.
+    let landed = null;
+    if (landedInput) {
+      landed = landedCost.allocate(
+        entries.map((e) => ({ key: String(e.lineId), quantity: Number(e.quantity), unitPrice: Number(byLineId.get(String(e.lineId)).unitPrice) || 0, weightKg: stockOps.find((o) => o.lineId === String(e.lineId))?.product.weightKg })),
+        landedInput.costs, { method: landedInput.allocation, exchangeRate: landedInput.exchangeRate },
+      );
+      const byKey = new Map(landed.lines.map((l) => [l.key, l]));
+      for (const op of stockOps) if (byKey.has(op.lineId)) op.unitCost = byKey.get(op.lineId).unitCost;
+    }
+
+    // Receiving warehouse: the one chosen at reception, else the order's, else the default.
+    const warehouse = isId(req.body.warehouse) ? req.body.warehouse : order.warehouse || null;
+    const file = await storeFile(req.file, order.company);
+    for (const op of stockOps) {
+      const reason = `${type === "reception" ? "Réception" : "Retour fournisseur"} ${order.number} (${reference})`;
+      const source = { kind: type === "reception" ? "purchase" : "purchase_return", id: order._id, number: order.number };
+      if (type === "reception") {
+        // Purchase price HT of the line feeds the CMUP.
+        // eslint-disable-next-line no-await-in-loop
+        await stock.receive({ product: op.product, warehouse, quantity: op.quantity, unitCost: op.unitCost, lots: op.lots, reason, source, actorId: req.user.id, supplier: order.supplier, isPurchase: true });
+      } else {
+        // eslint-disable-next-line no-await-in-loop
+        await stock.issue({ product: op.product, warehouse, quantity: op.quantity, lots: op.lots, reason, source, actorId: req.user.id, supplier: order.supplier });
+      }
+    }
+
+    applyReceptionToLines(order, type, entries);
+    order.receptions.push({
+      type,
+      reference,
+      date: req.body.date || new Date(),
+      lines: entries.map((e) => ({ lineId: e.lineId, quantity: Number(e.quantity) })),
+      notes: req.body.notes,
+      file,
+      by: req.user.id,
+      ...(landed ? { landed: landedDoc(landed, landedInput) } : {}),
+    });
+    const before = order.status;
+    order.status = deriveReceptionStatus(order);
+    order.updatedBy = req.user.id;
+    await order.save();
+
+    if (order.status === "received" && before !== "received") {
+      await updateLinkedRequests(order, order.purchaseRequests, "received", `BL ${reference}`, req.user.id);
+    }
+
+    await logAudit(req, {
+      company: order.company,
+      action: "update",
+      resourceType: "PurchaseOrder",
+      resourceId: order._id,
+      resourceLabel: `${order.number} — ${type === "reception" ? "réception" : "retour"} ${reference}`,
+    });
+    res.status(201).json({ success: true, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    console.error("POST purchase order reception error:", error);
+    res.status(error.status || 500).json({ success: false, message: error.status ? error.message : "Error recording the reception", error: error.message });
+  }
+});
+
+// ======================================================
+// CLOSE / REOPEN A LINE ("solder la ligne")
+// PATCH /api/purchase-orders/:id/lines/:lineId/close   { reason? }
+// PATCH /api/purchase-orders/:id/lines/:lineId/reopen
+// ======================================================
+// Real deliveries are often short: 70 ordered, 69 delivered, and the
+// last one isn't coming. Closing the line accepts what was received as
+// final — nothing more is expected, and once every line is received or
+// closed the order is "received" (its purchase requests close too).
+async function setLineClosed(req, res, closed) {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    if (!["sent", "partially_received", "received"].includes(order.status)) {
+      return bad(res, "Only an order sent to the supplier can have lines closed or reopened");
+    }
+    const line = order.lines.id(req.params.lineId);
+    if (!line) return bad(res, "Order line not found", 404);
+    if (closed && line.closed) return bad(res, "This line is already closed");
+    if (!closed && !line.closed) return bad(res, "This line isn't closed");
+
+    line.closed = closed;
+    line.closedAt = closed ? new Date() : null;
+    line.closedBy = closed ? req.user.id : null;
+    line.closeReason = closed ? String(req.body?.reason || "").trim().slice(0, 300) : undefined;
+    const before = order.status;
+    order.status = deriveReceptionStatus(order);
+    order.updatedBy = req.user.id;
+    await order.save();
+
+    if (order.status === "received" && before !== "received") {
+      await updateLinkedRequests(order, order.purchaseRequests, "received", `Ligne soldée : ${line.description}`, req.user.id);
+    }
+    await logAudit(req, {
+      company: order.company, action: "update", resourceType: "PurchaseOrder", resourceId: order._id,
+      resourceLabel: `${order.number} — ligne ${closed ? "soldée" : "rouverte"} : ${line.description}`,
+    });
+    res.json({ success: true, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    console.error("PATCH line close/reopen error:", error);
+    res.status(500).json({ success: false, message: "Error updating the line", error: error.message });
+  }
+}
+router.patch("/:id/lines/:lineId/close", (req, res) => setLineClosed(req, res, true));
+router.patch("/:id/lines/:lineId/reopen", (req, res) => setLineClosed(req, res, false));
+
+// ======================================================
+// ADD A TYPED-IN LINE TO THE INVENTORY
+// POST /api/purchase-orders/:id/lines/:lineId/create-article
+// body: { category (required), internalReference?, unit?, threshold? }
+// ======================================================
+// For an article bought for the first time (typed in on the price
+// request / order, not in the inventory yet). Creates the article —
+// already carrying this supplier and price — and links the line, so
+// receptions move stock from then on. Anything ALREADY received on
+// the line is put into stock right away, so nothing is lost. The
+// internal reference may be left empty and added later.
+
+router.post("/:id/lines/:lineId/create-article", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    if (order.status === "cancelled") return bad(res, "This order was cancelled");
+    const line = order.lines.id(req.params.lineId);
+    if (!line) return bad(res, "Order line not found", 404);
+    if (line.product) return bad(res, "This line is already an inventory article");
+
+    const { category, internalReference, unit, threshold } = req.body;
+    if (!category || !isId(category)) return bad(res, "Choose a category");
+    if (!(await InventoryCategory.exists({ _id: category, company: order.company }))) {
+      return bad(res, "Category not found in this company");
+    }
+    const thresholdValue = threshold === undefined || threshold === "" ? 0 : Number(threshold);
+    if (!Number.isFinite(thresholdValue) || thresholdValue < 0) return bad(res, "Invalid minimum stock");
+
+    const supplier = await Supplier.findById(order.supplier).select("name");
+    const product = await Product.create({
+      company: order.company,
+      category,
+      name: line.description,
+      internalReference: String(internalReference || "").trim().toUpperCase() || undefined,
+      unit: String(unit || line.unit || "").trim() || undefined,
+      quantity: 0,
+      threshold: thresholdValue,
+      prices: supplier ? [{ supplierName: supplier.name, price: line.unitPrice }] : [],
+      createdBy: req.user.id,
+      updatedBy: req.user.id,
+    });
+
+    line.product = product._id;
+    order.updatedBy = req.user.id;
+    await order.save();
+
+    const alreadyKept = (line.receivedQuantity || 0) - (line.returnedQuantity || 0);
+    if (alreadyKept > 0) {
+      await applyMovement({
+        product,
+        type: "in",
+        quantity: alreadyKept,
+        unitCost: Number(line.unitPrice) || 0,
+        warehouse: order.warehouse || null,
+        source: { kind: "purchase", id: order._id, number: order.number },
+        reason: `Mise en stock ${order.number} (article ajouté à l'inventaire)`,
+        actorId: req.user.id,
+      });
+    }
+
+    await logAudit(req, {
+      company: order.company,
+      action: "create",
+      resourceType: "Product",
+      resourceId: product._id,
+      resourceLabel: `${product.name} (depuis ${order.number})`,
+    });
+    res.status(201).json({ success: true, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    if (error.code === 11000) return bad(res, "Another article already uses this internal reference", 409);
+    console.error("POST create-article error:", error);
+    res.status(500).json({ success: false, message: "Error adding the article to the inventory", error: error.message });
+  }
+});
+
+// ======================================================
+// INVOICES  POST /api/purchase-orders/:id/invoices (multipart: file + number, date, dueDate, amountTTC, notes)
+//           DELETE /api/purchase-orders/:id/invoices/:invoiceId
+// ======================================================
+router.post("/:id/invoices", withUpload, async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    if (order.status === "cancelled") return bad(res, "This order was cancelled");
+
+    const type = req.body.type === "credit_note" ? "credit_note" : "invoice";
+    const number = String(req.body.number || "").trim();
+
+    // Exact VAT as printed on the invoice: [{ rate, baseHT, vat }] (sent
+    // as JSON in the multipart form). When given, it must add up to the
+    // invoice total; the total can also be left to be computed from it.
+    let vatBreakdown = [];
+    if (req.body.vatBreakdown) {
+      try {
+        vatBreakdown = typeof req.body.vatBreakdown === "string" ? JSON.parse(req.body.vatBreakdown) : req.body.vatBreakdown;
+      } catch {
+        return bad(res, "Invalid VAT breakdown");
+      }
+      if (!Array.isArray(vatBreakdown)) return bad(res, "Invalid VAT breakdown");
+      vatBreakdown = vatBreakdown
+        .map((r) => ({ rate: Number(r.rate), baseHT: round2(Number(r.baseHT)), vat: round2(Number(r.vat)) }))
+        .filter((r) => r.baseHT || r.vat);
+      if (vatBreakdown.some((r) => !Number.isFinite(r.rate) || r.rate < 0 || r.rate > 100 || !Number.isFinite(r.baseHT) || !Number.isFinite(r.vat))) {
+        return bad(res, "Each VAT line needs a rate, an amount excl. VAT and a VAT amount");
+      }
+      if (new Set(vatBreakdown.map((r) => r.rate)).size !== vatBreakdown.length) return bad(res, "The same VAT rate appears twice");
+    }
+    const breakdownTTC = round2(vatBreakdown.reduce((sum, r) => sum + r.baseHT + r.vat, 0));
+    const amountTTC = req.body.amountTTC !== undefined && req.body.amountTTC !== "" ? Number(req.body.amountTTC) : breakdownTTC;
+    if (vatBreakdown.length && Math.abs(breakdownTTC - amountTTC) > 0.05) {
+      return bad(res, `The VAT lines add up to ${breakdownTTC} TTC, not ${amountTTC}`);
+    }
+    if (!number) return bad(res, type === "credit_note" ? "Enter the credit note number" : "Enter the invoice number");
+    if (!req.body.date) return bad(res, "Enter the date");
+    if (!Number.isFinite(amountTTC) || amountTTC <= 0) return bad(res, "Enter an amount greater than zero");
+
+    // Due date: as entered, else invoice date + the supplier's payment
+    // days — or the legal 60 days (Loi 69-21) when the supplier has
+    // none, reported back so the UI can say so. Credit notes have none.
+    let dueDate = null;
+    let dueDateInfo = null;
+    if (type === "invoice") {
+      if (req.body.dueDate) {
+        dueDate = req.body.dueDate;
+        dueDateInfo = { source: "manual" };
+      } else {
+        const supplierDoc = await Supplier.findById(order.supplier).select("paymentDays");
+        const hasDays = Number.isFinite(supplierDoc?.paymentDays);
+        const days = hasDays ? supplierDoc.paymentDays : 60;
+        dueDate = new Date(new Date(req.body.date).getTime() + days * 24 * 60 * 60 * 1000);
+        dueDateInfo = { source: hasDays ? "supplier" : "legal_default", days };
+      }
+    }
+
+    const file = await storeFile(req.file, order.company);
+    order.invoices.push({ type, number, date: req.body.date, dueDate, amountTTC, vatBreakdown, notes: req.body.notes, file, by: req.user.id });
+    order.updatedBy = req.user.id;
+    await order.save();
+    res.status(201).json({ success: true, dueDate, dueDateInfo, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    if (error.code === "STORAGE_QUOTA" || error.code === "BAD_IMAGE") return res.status(error.status).json({ success: false, message: error.message, code: error.code });
+    console.error("POST invoice error:", error);
+    res.status(500).json({ success: false, message: "Error adding the invoice", error: error.message });
+  }
+});
+
+router.delete("/:id/invoices/:invoiceId", async (req, res) => {
+  try {
+    const order = isId(req.params.id) ? await PurchaseOrder.findById(req.params.id) : null;
+    if (!order) return bad(res, "Purchase order not found", 404);
+    const invoice = order.invoices.id(req.params.invoiceId);
+    if (!invoice) return bad(res, "Invoice not found", 404);
+    if (invoice.file?.publicId) await deleteFile(invoice.file.publicId).catch(() => {});
+    invoice.deleteOne();
+    await order.save();
+    res.json({ success: true, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error deleting the invoice", error: error.message });
+  }
+});
+
+// ======================================================
+// PAYMENTS  POST /api/purchase-orders/:id/payments { date, amount, method, reference?, notes? }
+//           DELETE /api/purchase-orders/:id/payments/:paymentId
+// ======================================================
+router.post("/:id/payments", async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return bad(res, "Invalid purchase order ID");
+    const order = await PurchaseOrder.findById(req.params.id);
+    if (!order) return bad(res, "Purchase order not found", 404);
+    if (order.status === "cancelled") return bad(res, "This order was cancelled");
+
+    const amount = Number(req.body.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return bad(res, "Enter an amount greater than zero");
+    if (!PurchaseOrder.PAYMENT_METHODS.includes(req.body.method)) return bad(res, "Choose a payment method");
+    if (!req.body.date) return bad(res, "Enter the payment date");
+    const { amountDue } = derivePaymentStatus(order);
+    if (amount > amountDue + 0.01) return bad(res, `This is more than what's left to pay (${amountDue})`);
+    let invoiceId = null;
+    if (req.body.invoiceId) {
+      const inv = order.invoices.id(req.body.invoiceId);
+      if (!inv || inv.type === "credit_note") return bad(res, "That invoice isn't on this order");
+      invoiceId = inv._id;
+    }
+
+    order.payments.push({ date: req.body.date, amount, method: req.body.method, reference: req.body.reference, notes: req.body.notes, invoiceId, by: req.user.id });
+    order.updatedBy = req.user.id;
+    await order.save();
+    res.status(201).json({ success: true, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    console.error("POST payment error:", error);
+    res.status(500).json({ success: false, message: "Error recording the payment", error: error.message });
+  }
+});
+
+router.delete("/:id/payments/:paymentId", async (req, res) => {
+  try {
+    const order = isId(req.params.id) ? await PurchaseOrder.findById(req.params.id) : null;
+    if (!order) return bad(res, "Purchase order not found", 404);
+    const payment = order.payments.id(req.params.paymentId);
+    if (!payment) return bad(res, "Payment not found", 404);
+    payment.deleteOne();
+    await order.save();
+    res.json({ success: true, data: await PurchaseOrder.findById(order._id).populate(DETAIL_POPULATE) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error deleting the payment", error: error.message });
+  }
+});
+
+// ======================================================
+// SUPPLIER PAYMENT  POST /api/purchase-orders/supplier-payments
+// One transfer / cheque settling several invoices, possibly on several
+// orders of the same supplier.
+// body: { company, supplier, date, method, reference?, notes?,
+//         allocations: [{ orderId, invoiceId, amount }] }
+// Everything is validated BEFORE anything is saved, so a bad line
+// can't leave a half-recorded payment.
+// ======================================================
+router.post("/supplier-payments", async (req, res) => {
+  try {
+    const { company, supplier, date, method, reference, notes, allocations } = req.body;
+    if (!company || !isId(company)) return bad(res, "A valid company is required");
+    if (!supplier || !isId(supplier)) return bad(res, "Choose a supplier");
+    if (!date) return bad(res, "Enter the payment date");
+    if (!PurchaseOrder.PAYMENT_METHODS.includes(method)) return bad(res, "Choose a payment method");
+    if (!Array.isArray(allocations) || allocations.length === 0) return bad(res, "Choose at least one invoice to settle");
+
+    const orders = new Map();
+    const plan = [];
+    for (const a of allocations) {
+      const amount = round2(Number(a.amount));
+      if (!Number.isFinite(amount) || amount <= 0) return bad(res, "Every amount must be greater than zero");
+      if (!isId(a.orderId)) return bad(res, "Invalid purchase order");
+      let order = orders.get(String(a.orderId));
+      if (!order) {
+        // eslint-disable-next-line no-await-in-loop
+        order = await PurchaseOrder.findById(a.orderId);
+        if (!order || String(order.company) !== String(company) || String(order.supplier) !== String(supplier)) {
+          return bad(res, "An invoice doesn't belong to this supplier");
+        }
+        if (order.status === "cancelled") return bad(res, `${order.number} was cancelled`);
+        orders.set(String(a.orderId), order);
+      }
+      const inv = order.invoices.id(a.invoiceId);
+      if (!inv || inv.type === "credit_note") return bad(res, `Invoice not found on ${order.number}`);
+      plan.push({ order, inv, amount });
+    }
+
+    // amounts vs what's left on each invoice (several lines may target the same invoice)
+    const wanted = new Map();
+    for (const p of plan) wanted.set(String(p.inv._id), round2((wanted.get(String(p.inv._id)) || 0) + p.amount));
+    for (const order of orders.values()) {
+      for (const row of allocateInvoices(order)) {
+        const w = wanted.get(String(row.invoice._id));
+        if (w && w > row.remaining + 0.01) return bad(res, `Invoice ${row.invoice.number}: only ${row.remaining} left to pay`);
+      }
+    }
+
+    const batchRef = String(reference || "").trim() || `REG-${Date.now().toString(36).toUpperCase()}`;
+    for (const p of plan) {
+      p.order.payments.push({ date, amount: p.amount, method, reference: String(reference || "").trim() || undefined,
+        notes, invoiceId: p.inv._id, batchRef, by: req.user.id });
+    }
+    for (const order of orders.values()) {
+      order.updatedBy = req.user.id;
+      // eslint-disable-next-line no-await-in-loop
+      await order.save();
+    }
+    const total = round2(plan.reduce((sum, p) => sum + p.amount, 0));
+    await logAudit(req, { company, action: "create", resourceType: "PurchaseOrder", resourceId: [...orders.values()][0]._id,
+      resourceLabel: `Règlement fournisseur ${batchRef} — ${total} MAD sur ${plan.length} facture(s)` });
+    res.status(201).json({ success: true, data: { batchRef, total, invoices: plan.length, orders: orders.size } });
+  } catch (error) {
+    console.error("POST supplier payment error:", error);
+    res.status(500).json({ success: false, message: "Error recording the supplier payment", error: error.message });
+  }
+});
+
+// ======================================================
+// DELETE  DELETE /api/purchase-orders/:id — drafts only (anything
+// sent is part of the record; cancel it instead)
+// ======================================================
+router.delete("/:id", async (req, res) => {
+  try {
+    const order = isId(req.params.id) ? await PurchaseOrder.findById(req.params.id) : null;
+    if (!order) return bad(res, "Purchase order not found", 404);
+    if (order.status !== "draft") return bad(res, "Only a draft can be deleted — cancel a sent order instead");
+    await updateLinkedRequests(order, order.purchaseRequests, "pending", `Brouillon ${order.number} supprimé`, req.user.id);
+    await order.deleteOne();
+    res.json({ success: true, message: "Draft deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error deleting the purchase order", error: error.message });
+  }
+});
+
+module.exports = router;

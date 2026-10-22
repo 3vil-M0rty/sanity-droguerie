@@ -1,0 +1,129 @@
+// Must load before the schema is compiled — registers the client-isolation plugin.
+require("../services/tenantScope");
+const mongoose = require("mongoose");
+const translatable = require("../plugins/translatable");
+
+/**
+ * ============================================================
+ * DEPARTMENT
+ * ============================================================
+ * Replaces the old fixed enum that used to live directly on
+ * Employee.department and User.department — companies now define
+ * their own departments here (Organization -> Departments), with
+ * whatever names/structure fits them.
+ *
+ * `permissionKey` is the bridge back to the app's PERMISSION
+ * system, which is intentionally NOT company-customizable: module
+ * access (canAccessHR, canAccessProduction — see
+ * permissions/permissions.js) is checked against a small fixed set
+ * of codes ("hr", "production", ...), because those gate which
+ * FEATURES of this app a login can use, not how the company
+ * organizes itself. A company might call their HR team "Ressources
+ * Humaines", "People Ops", anything — setting permissionKey: "hr"
+ * on THAT department is what tells the system "employees here, and
+ * any login auto-created for them, should get HR module access".
+ * Leaving it unset (most departments) means employees there get no
+ * special module access beyond self-service, which is the normal
+ * case. See services/employeeAccountService.js for where this
+ * actually gets applied to a newly-created login.
+ * ============================================================
+ */
+
+const departmentSchema = new mongoose.Schema(
+  {
+    company: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      required: true,
+      index: true,
+    },
+
+    name: {
+      type: String,
+      required: [true, "Department name is required"],
+      trim: true,
+    },
+
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+
+    // Bridges this company-defined department to the app's fixed
+    // permission codes — see the big comment above. null/omitted
+    // is the normal case; only set this on the ONE department that
+    // should unlock a given module.
+    permissionKey: {
+      type: String,
+      enum: ["hr", "warehouse", "production", "purchasing", "sales", "logistics", "pos", null],
+      default: null,
+    },
+
+    // The employee who runs this department. Must be an employee OF
+    // this department (enforced in routes/departments.js). Their login
+    // gets the department's module at the top tier regardless of job
+    // title, they can approve absence/advance requests from everyone
+    // in the department (except their own), and they decide — on the
+    // "My department" page — which of the department's job positions
+    // grant module access to their holders.
+    manager: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+      default: null,
+      index: true,
+    },
+
+    // The work schedule of this department's staff (null = the
+    // company's default schedule) — see services/scheduleResolver.js.
+    workSchedule: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "WorkSchedule",
+      default: null,
+    },
+
+    // A broader business-function tag than permissionKey — same
+    // taxonomy User.department already uses, but here it carries NO
+    // access-control meaning at all (unlike permissionKey, which
+    // gates real module access). Its only job is letting the
+    // Employees create/edit form suggest a standard set of job
+    // titles once this department is selected (see
+    // config/departmentJobTitles.js on both frontend and backend)
+    // instead of leaving Job Title free text for every department.
+    // A company can set this on as many departments as apply, or
+    // leave it unset — an unset category just means Job Title stays
+    // free text for employees there, same as before this feature
+    // existed.
+    category: {
+      type: String,
+      enum: [
+        "management", "administration", "hr", "finance", "accounting",
+        "sales", "purchasing", "marketing", "production", "production_planning",
+        "quality_control", "maintenance", "warehouse", "logistics", "procurement",
+        "engineering", "design", "research_development", "it", "customer_service",
+        "health_safety_environment", "security", "pos", null,
+      ],
+      default: null,
+    },
+
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  },
+  { timestamps: true }
+);
+
+// Multilingual (fr/en/ar) content layer for `name` and `description` —
+// see plugins/translatable.js.
+departmentSchema.plugin(translatable, { fields: ["name", "description"] });
+
+departmentSchema.index({ company: 1, name: 1 }, { unique: true });
+// At most one department per company can carry a given permission
+// key — otherwise "which department's login gets HR access" would
+// be ambiguous. Partial index so companies with no permissionKey
+// set on anything aren't affected.
+departmentSchema.index(
+  { company: 1, permissionKey: 1 },
+  { unique: true, partialFilterExpression: { permissionKey: { $type: "string" } } }
+);
+
+module.exports = mongoose.model("Department", departmentSchema);

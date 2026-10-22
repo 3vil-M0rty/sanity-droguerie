@@ -1,0 +1,190 @@
+/**
+ * ============================================================
+ * MOROCCO PAYROLL CONFIGURATION — PRIVATE SECTOR (RÉGIME GÉNÉRAL)
+ * ============================================================
+ * ⚠️  READ BEFORE USING THIS FOR REAL PAYROLL  ⚠️
+ *
+ * Every number below is a real, named Moroccan payroll parameter
+ * (CNSS, AMO, IR, frais professionnels, SMIG) as of the 2024
+ * Loi de Finances reform of the income-tax brackets. Morocco
+ * revises some of these figures via the Loi de Finances, usually
+ * announced in December and effective the following January —
+ * so treat this file as "last known good", not "guaranteed
+ * current", and re-verify it at least once a year:
+ *
+ *   - CNSS rates/ceiling: https://www.cnss.ma (Employeur > Cotisations)
+ *   - IR brackets: Direction Générale des Impôts (tax.gov.ma), or
+ *     the current year's Note Circulaire on the Loi de Finances.
+ *   - SMIG: Ministère du Travail (updated periodically, not every year)
+ *
+ * This system has no way to detect that a rate is outdated — it
+ * will keep calculating with whatever is written here. Update this
+ * ONE file when rates change; every payslip calculation reads from
+ * it (see services/payrollCalculationService.js), so nothing else
+ * needs to change.
+ *
+ * Scope: this models the RÉGIME GÉNÉRAL (ordinary private-sector
+ * employees under the CNSS/AMO system). It does NOT cover BTP
+ * (construction) sector-specific rates, agricultural workers
+ * (CNSS has a separate, lower-rate regime for them), or public-
+ * sector/CMR pension rules — those need their own configuration
+ * if you need them.
+ * ============================================================
+ */
+
+module.exports = {
+  CURRENCY: "MAD",
+
+  // ----------------------------------------------------------
+  // CNSS (Caisse Nationale de Sécurité Sociale)
+  // Source: CNSS "Taux de cotisations" schedule.
+  // ----------------------------------------------------------
+  CNSS: {
+    // Employee's share, deducted from gross salary. Only applies
+    // up to the monthly ceiling — any salary above it is NOT
+    // subject to this specific deduction (the ceiling has been
+    // 6,000 MAD/month for several years).
+    EMPLOYEE_RATE: 0.0448, // 4.48% — covers old-age/invalidity/death (long-term) + short-term (sickness/maternity) benefits, employee's combined share
+    MONTHLY_CEILING: 6000, // MAD
+
+    // Employer's share (informational only — doesn't change the
+    // employee's net pay, but is needed for true "cost to company"
+    // reporting). CNSS employer contributions are actually split
+    // across several sub-branches, shown here individually so each
+    // one can be corrected independently if you have exact figures:
+    EMPLOYER_RATE_LONG_TERM: 0.0898, // 8.98% — old-age/invalidity/death, capped at MONTHLY_CEILING
+    EMPLOYER_RATE_SHORT_TERM: 0.0067, // 0.67% — sickness/maternity, capped at MONTHLY_CEILING
+    EMPLOYER_RATE_FAMILY_ALLOWANCE: 0.064, // 6.40% — family allowances ("allocations familiales"), NO ceiling
+
+    // Vocational training tax ("taxe de formation professionnelle"),
+    // employer-only, no ceiling.
+    EMPLOYER_VOCATIONAL_TRAINING_RATE: 0.016, // 1.6%
+  },
+
+  // ----------------------------------------------------------
+  // AMO (Assurance Maladie Obligatoire) — CNSS-administered
+  // health insurance, separate from the CNSS contribution above.
+  // ----------------------------------------------------------
+  AMO: {
+    EMPLOYEE_RATE: 0.0226, // 2.26%, NO ceiling — applies to full gross salary
+    EMPLOYER_RATE: 0.0411, // 4.11%, NO ceiling
+    // A small additional AMO participation fee sometimes cited
+    // alongside the main rate ("participation à l'effort de
+    // solidarité"), employer-only. Set to 0 if not applicable to
+    // your company; left explicit here rather than silently
+    // folded into EMPLOYER_RATE so it's easy to toggle off.
+    EMPLOYER_SOLIDARITY_CONTRIBUTION_RATE: 0.0,
+  },
+
+  // ----------------------------------------------------------
+  // CIMR (Caisse Interprofessionnelle Marocaine de Retraite)
+  // Optional complementary retirement scheme — NOT every company
+  // enrolls, and it's not required by law. Where offered, the rate
+  // is chosen by the employer (commonly between 3% and 6%,
+  // employee and employer usually matching). Defaults to 0 (not
+  // enrolled) unless set on the employee's Salary record.
+  // ----------------------------------------------------------
+  CIMR: {
+    DEFAULT_EMPLOYEE_RATE: 0,
+    DEFAULT_EMPLOYER_RATE: 0,
+  },
+
+  // ----------------------------------------------------------
+  // FRAIS PROFESSIONNELS (standard professional-expense deduction)
+  // A flat percentage of taxable salary (after CNSS/AMO/CIMR) is
+  // deducted before computing income tax, up to a monthly cap —
+  // this is a standard allowance, not something the employee has
+  // to justify with receipts.
+  // ----------------------------------------------------------
+  // Since the 2023 Loi de Finances (CGI art. 59-I), computed on the
+  // GROSS taxable salary (salaire brut imposable), before social
+  // contributions:
+  //   - 35% when the annual gross taxable salary ≤ 78,000 MAD
+  //     (6,500 MAD/month);
+  //   - 25% above, capped at 35,000 MAD/year (2,916.67 MAD/month).
+  // (It was a flat 20% capped at 30,000 MAD/year before 2023.)
+  PROFESSIONAL_EXPENSES: {
+    ANNUAL_THRESHOLD: 78000, // MAD
+    RATE_UP_TO_THRESHOLD: 0.35,
+    RATE_ABOVE_THRESHOLD: 0.25,
+    ANNUAL_CAP_ABOVE_THRESHOLD: 35000, // MAD
+  },
+
+  // ----------------------------------------------------------
+  // IR (Impôt sur le Revenu) — progressive ANNUAL brackets,
+  // reformed by the 2025 Loi de Finances (effective January 2025):
+  // the 0%-threshold rose from 30,000 to 40,000 MAD/year and the
+  // top rate dropped from 38% to 37%.
+  //
+  // `deduction` is the standard "quick calculation" ("somme à
+  // déduire") subtracted after applying the bracket's rate to the
+  // full annual taxable income:
+  //     IR_annuel = revenu_imposable_annuel × rate − deduction
+  // These deduction values are derived FROM the rates/thresholds
+  // themselves (they make the formula continuous across bracket
+  // boundaries) — if you update a threshold or rate, recompute the
+  // deductions for every bracket after it too.
+  // ----------------------------------------------------------
+  IR_BRACKETS: [
+    { upTo: 40000, rate: 0, deduction: 0 },
+    { upTo: 60000, rate: 0.1, deduction: 4000 },
+    { upTo: 80000, rate: 0.2, deduction: 10000 },
+    { upTo: 100000, rate: 0.3, deduction: 18000 },
+    { upTo: 180000, rate: 0.34, deduction: 22000 },
+    { upTo: Infinity, rate: 0.37, deduction: 27400 },
+  ],
+
+  // ----------------------------------------------------------
+  // CHARGES DE FAMILLE (family-charge deduction)
+  // A flat monthly reduction of the IR AMOUNT ITSELF (not of the
+  // taxable base) per dependent (spouse + each child), up to a
+  // maximum number of dependents.
+  // ----------------------------------------------------------
+  // Loi de Finances 2025: 500 MAD/year per dependent (was 360).
+  // Loi de Finances 2026 (loi n° 50-25, CGI art. 74-I): 600 MAD/year
+  // per dependent, at most 6 dependents → 3,600 MAD/year (300/month).
+  // Keyed by the payslip's YEAR, so re-generating a 2025 payslip
+  // still uses 500. Add next year's figure here when it changes.
+  FAMILY_DEDUCTION: {
+    PER_DEPENDENT_ANNUAL_BY_YEAR: { 2025: 500, 2026: 600 },
+    MAX_DEPENDENTS: 6,
+  },
+
+  // ----------------------------------------------------------
+  // PRIME D'ANCIENNETÉ (Code du travail, art. 350 to 353)
+  // Mandatory: % of the base salary once the employee reaches each
+  // step of continuous service in the company.
+  // ----------------------------------------------------------
+  SENIORITY_STEPS: [
+    { years: 25, rate: 0.25 },
+    { years: 20, rate: 0.2 },
+    { years: 12, rate: 0.15 },
+    { years: 5, rate: 0.1 },
+    { years: 2, rate: 0.05 },
+  ],
+
+  // ----------------------------------------------------------
+  // EXEMPT ALLOWANCES (indemnités non imposables)
+  // Exempt from IR and from the CNSS/AMO base WITHIN these limits;
+  // anything above the limit is taxed like salary. Same treatment
+  // as the usual Moroccan payroll packages (DGI note circulaire,
+  // CNSS list of exempt items).
+  // ----------------------------------------------------------
+  EXEMPT_ALLOWANCES: {
+    transport: { monthlyCap: 500 }, // home ↔ work, workplace inside an urban area
+    transport_outside: { monthlyCap: 750 }, // workplace outside an urban area
+    panier: { smigHourlyMultiplierPerDay: 2 }, // 2 × hourly SMIG per worked day
+    representation: { baseSalaryRate: 0.1 }, // 10% of the base salary
+  },
+
+  // ----------------------------------------------------------
+  // SMIG (Salaire Minimum Interprofessionnel Garanti)
+  // General private-sector minimum wage — used only to flag
+  // salaries that look non-compliant; not enforced automatically.
+  // Morocco also has a separate, lower SMAG for agricultural
+  // workers, not modeled here.
+  // ----------------------------------------------------------
+  // 2026: 17.92 MAD/hour (non-agricultural sectors) × 191 h.
+  SMIG_HOURLY: 17.92,
+  SMIG_MONTHLY_APPROX: 3422.72, // MAD/month = 191 h × hourly SMIG
+};

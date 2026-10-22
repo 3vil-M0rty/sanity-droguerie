@@ -1,0 +1,183 @@
+/* "Primes du mois" block of a payroll run (PayrollBonuses.jsx). */
+
+.box {
+    margin: 4px 0 18px;
+    padding: 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+}
+
+.head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.head h3 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 4px;
+    font-size: 0.95rem;
+}
+
+.headActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.headActions select,
+.field input,
+.field select {
+    min-width: 0;
+    padding: 9px 11px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 0.84rem;
+}
+
+.form {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 1.4fr);
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--color-bg-tertiary);
+}
+
+@media (max-width: 900px) {
+    .form {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 560px) {
+    .form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.field label {
+    color: var(--color-text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.formActions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr) minmax(90px, auto) 76px;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border-light);
+    font-size: 0.84rem;
+}
+
+@media (max-width: 560px) {
+    .row {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .row > span:nth-child(2) {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+    .row > .actions {
+        grid-column: 1 / -1;
+        grid-row: 3;
+    }
+    .totalRow > span:empty {
+        display: none;
+    }
+}
+
+.who {
+    font-weight: 600;
+}
+
+.amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.totalRow {
+    border-bottom: 0;
+    font-weight: 700;
+}
+
+.badge {
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    font-size: 0.68rem;
+}
+
+.muted {
+    color: var(--color-text-tertiary);
+    font-size: 0.74rem;
+}
+
+.warn {
+    color: var(--tone-ff8585);
+}
+
+.notice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-bottom: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--color-bg-tertiary);
+    font-size: 0.82rem;
+}
+
+.notice button {
+    margin-left: auto;
+}
+
+.error {
+    margin-bottom: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: rgba(255, 80, 80, 0.06);
+    color: var(--tone-ff8585);
+    font-size: 0.82rem;
+}

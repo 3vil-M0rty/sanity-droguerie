@@ -1,0 +1,130 @@
+/* ============================================================
+   Company page — page-specific styles only.
+
+   Shared layout/button/empty-state/detail-card/loading/danger-
+   zone rules live once in src/styles/global.css as plain global
+   classes (pageShell, pageHeader, btnPrimary, detailCard, etc.).
+   This file does NOT use CSS Modules `composes` — the shared
+   classes are applied directly in the JSX (e.g.
+   className="btnPrimary"), and this file only holds styles that
+   are genuinely specific to the Company page, or that add a
+   little extra on top of a shared class (e.g. .editButton below).
+   ============================================================ */
+
+/* ---------- Buttons ---------- */
+
+/* Extra responsive tweak on top of the shared "btnEdit" class,
+   applied in JSX as: className={`btnEdit ${styles.editButton}`}.
+   Uses a :global(...) compound selector (rather than a bare
+   ".editButton" rule) so this reliably wins over any width the
+   shared "btnEdit" class might set, regardless of CSS load order. */
+@media (max-width: 700px) {
+  :global(.btnEdit).editButton {
+    width: 100%;
+  }
+}
+
+/* ---------- Company card / detail ---------- */
+
+.logoSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 1.5rem;
+
+  border-bottom: 1px solid rgba(var(--overlay-rgb),  0.07);
+  background: rgba(var(--overlay-rgb),  0.015);
+}
+
+.logo {
+  max-width: 200px;
+  max-height: 120px;
+  object-fit: contain;
+}
+
+/* ---------- Employee count block (page-specific, no equivalent elsewhere) ---------- */
+
+.employeeSection {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  padding: 1.5rem;
+  background: rgba(var(--overlay-rgb),  0.025);
+}
+
+.employeeIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 42px;
+  height: 42px;
+
+  color: var(--color-text-tertiary);
+
+  background: rgba(var(--overlay-rgb),  0.05);
+  border: 1px solid rgba(var(--overlay-rgb),  0.08);
+  border-radius: 10px;
+}
+
+.employeeSection div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.employeeSection span {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.employeeSection strong {
+  color: var(--color-text-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* ---- several companies per client + quota ---- */
+.companyBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.companyChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.companyChipActive {
+    border-color: var(--color-primary, #2563eb);
+    background: var(--color-primary-light, rgba(37, 99, 235, 0.1));
+    color: var(--color-primary, #2563eb);
+}
+
+.quotaBadge {
+    margin-left: 4px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--color-bg-secondary);
+    color: var(--color-text-tertiary);
+    font-size: 0.72rem;
+}
+
+.quotaLine {
+    color: var(--color-text-tertiary);
+    font-size: 0.8rem;
+}

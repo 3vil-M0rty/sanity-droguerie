@@ -1,0 +1,9 @@
+.meter { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
+.compact { display: flex; flex-direction: column; gap: 2px; min-width: 90px; max-width: 160px; }
+.bar { height: 8px; border-radius: 999px; background: var(--color-border, #e5e7eb); overflow: hidden; }
+.compact .bar { height: 5px; }
+.bar span { display: block; height: 100%; border-radius: 999px; transition: width 0.3s ease; }
+.ok { background: #0f766e; }
+.high { background: #d97706; }
+.full { background: #dc2626; }
+.meter small, .compact small { font-size: 0.75rem; color: var(--color-text-secondary); white-space: nowrap; }

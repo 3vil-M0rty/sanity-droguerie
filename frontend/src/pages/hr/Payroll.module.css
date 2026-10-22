@@ -1,0 +1,97 @@
+.toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 320px);
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.filterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.filterGroup label {
+    color: var(--color-text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.errorMessage {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255, 80, 80, 0.25);
+    border-radius: 10px;
+    background: rgba(255, 80, 80, 0.06);
+    color: var(--tone-ff8585);
+    font-size: 0.82rem;
+}
+
+.detailPanel {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-border);
+}
+
+.detailHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.detailHeader h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.detailHeaderActions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.loadingText {
+    color: var(--color-text-tertiary);
+    font-size: 0.85rem;
+}
+
+.payslipSearchWrapper {
+    max-width: 320px;
+    margin-bottom: 14px;
+}
+
+@media (max-width: 700px) {
+    .toolbar {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================================
+   UNIFIED FILTER BAR — identical on every list page.
+   Dropdowns keep a FIXED width (they never resize with the chosen
+   option); the search bar sits on the SAME line and takes the
+   remaining space; everything wraps cleanly on narrow screens.
+   ============================================================ */
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.toolbar > * {
+    flex: 0 0 220px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* the search field grows to fill the line */
+.toolbar > *:has(input[type="text"]) {
+    flex: 1 1 280px;
+}

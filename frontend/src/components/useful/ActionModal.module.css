@@ -1,0 +1,371 @@
+/* ========================================
+   ACTION MODAL
+   ======================================== */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 1.5rem;
+
+  background: rgba(0, 0, 0, 0.58);
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  animation: overlayIn 0.2s ease-out;
+}
+
+
+/* ========================================
+   MODAL
+   ======================================== */
+
+.modal {
+  position: relative;
+
+  width: min(100%, 380px);
+
+  padding: 2rem;
+
+  background: rgba(var(--surface-rgb), 0.94);
+
+  border: 1px solid rgba(var(--overlay-rgb),  0.1);
+
+  border-radius: 14px;
+
+  box-shadow:
+    0 25px 80px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(var(--overlay-rgb),  0.04);
+
+  text-align: center;
+
+  animation: modalIn 0.25s ease-out;
+}
+
+
+/* ========================================
+   CLOSE ICON
+   ======================================== */
+
+.closeIcon {
+  position: absolute;
+
+  top: 12px;
+  right: 12px;
+
+  width: 32px;
+  height: 32px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  color: var(--color-text-muted);
+
+  background: transparent;
+
+  border: none;
+  border-radius: 8px;
+
+  cursor: pointer;
+
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
+}
+
+.closeIcon:hover {
+  color: var(--color-text-primary);
+
+  background: rgba(var(--overlay-rgb),  0.06);
+}
+
+
+/* ========================================
+   ICON
+   ======================================== */
+
+.iconWrapper {
+  width: 52px;
+  height: 52px;
+
+  margin: 0 auto 1.25rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+}
+
+
+/* CONFIRM */
+
+.confirm {
+  color: var(--tone-facc15);
+
+  background: rgba(250, 204, 21, 0.08);
+
+  border: 1px solid rgba(250, 204, 21, 0.2);
+}
+
+
+/* SUCCESS */
+
+.success {
+  color: var(--tone-4ade80);
+
+  background: rgba(74, 222, 128, 0.08);
+
+  border: 1px solid rgba(74, 222, 128, 0.2);
+
+  box-shadow:
+    0 0 25px rgba(74, 222, 128, 0.08);
+}
+
+
+/* ERROR */
+
+.error {
+  color: var(--tone-f87171);
+
+  background: rgba(248, 113, 113, 0.08);
+
+  border: 1px solid rgba(248, 113, 113, 0.2);
+
+  box-shadow:
+    0 0 25px rgba(248, 113, 113, 0.06);
+}
+
+
+/* ========================================
+   CONTENT
+   ======================================== */
+
+.content {
+  margin-bottom: 1.5rem;
+}
+
+.content h3 {
+  margin: 0 0 0.5rem;
+
+  color: var(--color-text-primary);
+
+  font-size: 1.1rem;
+  font-weight: 600;
+
+  letter-spacing: -0.01em;
+}
+
+.content p {
+  max-width: 290px;
+
+  margin: 0 auto;
+
+  color: var(--color-text-muted);
+
+  font-size: 0.9rem;
+  line-height: 1.6;
+
+  /* Preserves \n line breaks in multi-line messages (e.g. showing
+     an email + generated temporary password on separate lines)
+     while still collapsing runs of spaces/tabs like normal text. */
+  white-space: pre-line;
+}
+
+
+/* ========================================
+   ACTIONS
+   ======================================== */
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+
+  gap: 0.75rem;
+}
+
+
+/* ========================================
+   CANCEL
+   ======================================== */
+
+.cancelButton,
+.confirmButton,
+.successButton,
+.errorButton {
+  min-height: 40px;
+
+  padding: 0.7rem 1rem;
+
+  border-radius: 8px;
+
+  font-size: 0.85rem;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.cancelButton {
+  color: var(--color-text-tertiary);
+
+  background: rgba(var(--overlay-rgb),  0.04);
+
+  border: 1px solid rgba(var(--overlay-rgb),  0.1);
+}
+
+.cancelButton:hover {
+  color: var(--color-text-primary);
+
+  background: rgba(var(--overlay-rgb),  0.07);
+}
+
+
+/* ========================================
+   CONFIRM
+   ======================================== */
+
+.confirmButton {
+  color: var(--color-inverse-fg);
+
+  background: var(--color-inverse-bg);
+
+  border: 1px solid var(--color-inverse-bg);
+}
+
+.confirmButton:hover {
+  background: var(--color-inverse-hover);
+
+  transform: translateY(-1px);
+}
+
+
+/* ========================================
+   SUCCESS BUTTON
+   ======================================== */
+
+.successButton {
+  width: 100%;
+
+  color: var(--color-inverse-fg);
+
+  background: var(--color-inverse-bg);
+
+  border: 1px solid var(--color-inverse-bg);
+}
+
+.successButton:hover {
+  background: var(--color-inverse-hover);
+
+  transform: translateY(-1px);
+}
+
+
+/* ========================================
+   ERROR BUTTON
+   ======================================== */
+
+.errorButton {
+  width: 100%;
+
+  color: var(--color-text-primary);
+
+  background: rgba(var(--overlay-rgb),  0.05);
+
+  border: 1px solid rgba(var(--overlay-rgb),  0.12);
+}
+
+.errorButton:hover {
+  background: rgba(var(--overlay-rgb),  0.08);
+
+  transform: translateY(-1px);
+}
+
+
+/* ========================================
+   DISABLED
+   ======================================== */
+
+.cancelButton:disabled,
+.confirmButton:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.5;
+
+  transform: none;
+}
+
+
+/* ========================================
+   LOADING
+   ======================================== */
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* optional text field (prompt) */
+.input {
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--color-text-primary, #fff);
+  background: rgba(var(--overlay-rgb),  0.04);
+  border: 1px solid rgba(var(--overlay-rgb),  0.14);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-info, #3b82f6);
+}

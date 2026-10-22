@@ -1,0 +1,15 @@
+{
+  "name": "Sanity Terrain",
+  "short_name": "Sanity",
+  "description": "Commandes, visites et livraisons sur le terrain — fonctionne sans réseau.",
+  "start_url": "/m",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

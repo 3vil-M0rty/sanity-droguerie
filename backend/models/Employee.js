@@ -1,0 +1,536 @@
+// Must load before the schema is compiled — registers the client-isolation plugin.
+require("../services/tenantScope");
+const mongoose = require("mongoose");
+const translatable = require("../plugins/translatable");
+
+const employeeSchema = new mongoose.Schema(
+    {
+        // =========================================================
+        // COMPANY / LOGIN
+        // =========================================================
+
+        company: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Company",
+            required: [true, "Company is required"],
+            index: true,
+        },
+
+        // Optional login account
+        // Not every employee needs access to FRAME.
+
+        // =========================================================
+        // EMPLOYEE IDENTIFICATION
+        // =========================================================
+
+        employeeNumber: {
+            type: String,
+            required: [true, "Employee number is required"],
+            trim: true,
+            uppercase: true,
+        },
+
+        firstName: {
+            type: String,
+            required: [true, "First name is required"],
+            trim: true,
+            maxlength: 100,
+        },
+
+        lastName: {
+            type: String,
+            required: [true, "Last name is required"],
+            trim: true,
+            maxlength: 100,
+        },
+
+        photo: {
+            url: {
+                type: String,
+                default: null,
+            },
+            publicId: {
+                type: String,
+                default: null,
+            },
+        },
+
+        firstNameArabic: {
+            type: String,
+            trim: true,
+            maxlength: 100,
+        },
+
+        lastNameArabic: {
+            type: String,
+            trim: true,
+            maxlength: 100,
+        },
+
+        // =========================================================
+        // PERSONAL INFORMATION
+        // =========================================================
+
+        gender: {
+            type: String,
+            enum: ["male", "female", "other"],
+        },
+
+        dateOfBirth: {
+            type: Date,
+        },
+
+        placeOfBirth: {
+            type: String,
+            trim: true,
+        },
+
+        nationality: {
+            type: String,
+            trim: true,
+            default: "Moroccan",
+        },
+
+        maritalStatus: {
+            type: String,
+            enum: [
+                "single",
+                "married",
+                "divorced",
+                "widowed",
+                "other",
+            ],
+            default: "single",
+        },
+
+        numberOfDependents: {
+            type: Number,
+            min: 0,
+            default: 0,
+        },
+
+        // =========================================================
+        // IDENTITY DOCUMENTS
+        // =========================================================
+
+        cin: {
+            type: String,
+            trim: true,
+            uppercase: true,
+        },
+
+        passportNumber: {
+            type: String,
+            trim: true,
+            uppercase: true,
+        },
+
+        passportExpiryDate: {
+            type: Date,
+        },
+
+        // Useful for foreign employees
+        workPermitNumber: {
+            type: String,
+            trim: true,
+        },
+
+        workPermitExpiryDate: {
+            type: Date,
+        },
+
+        // =========================================================
+        // CONTACT
+        // =========================================================
+
+        personalEmail: {
+            type: String,
+            trim: true,
+            lowercase: true,
+        },
+
+        workEmail: {
+            type: String,
+            trim: true,
+            lowercase: true,
+        },
+
+        phone: {
+            type: String,
+            trim: true,
+        },
+
+        secondaryPhone: {
+            type: String,
+            trim: true,
+        },
+
+        // =========================================================
+        // ADDRESS
+        // =========================================================
+
+        address: {
+            street: {
+                type: String,
+                trim: true,
+            },
+
+            city: {
+                type: String,
+                trim: true,
+            },
+
+            region: {
+                type: String,
+                trim: true,
+            },
+
+            postalCode: {
+                type: String,
+                trim: true,
+            },
+
+            country: {
+                type: String,
+                trim: true,
+                default: "Morocco",
+            },
+        },
+
+        // =========================================================
+        // EMERGENCY CONTACT
+        // =========================================================
+
+        emergencyContact: {
+            name: {
+                type: String,
+                trim: true,
+            },
+
+            relationship: {
+                type: String,
+                trim: true,
+            },
+
+            phone: {
+                type: String,
+                trim: true,
+            },
+
+            email: {
+                type: String,
+                trim: true,
+                lowercase: true,
+            },
+        },
+
+        // =========================================================
+        // EMPLOYMENT
+        // =========================================================
+
+        hireDate: {
+            type: Date,
+            required: [true, "Hire date is required"],
+        },
+
+        terminationDate: {
+            type: Date,
+        },
+
+        employmentStatus: {
+            type: String,
+            enum: [
+                "active",
+                "inactive",
+                "on_leave",
+                "suspended",
+                "terminated",
+            ],
+            default: "active",
+            index: true,
+        },
+
+        employmentType: {
+            type: String,
+            enum: [
+                "permanent",
+                "fixed_term",
+                "temporary",
+                "intern",
+                "apprentice",
+                "freelance",
+                "part_time",
+                "other",
+            ],
+            default: "permanent",
+        },
+
+        // =========================================================
+        // JOB INFORMATION
+        // =========================================================
+
+        jobTitle: {
+            type: String,
+            trim: true,
+        },
+
+        department: {
+            // Was a fixed enum string — now a reference to a
+            // company-defined Department (see models/Department.js
+            // and routes/departments.js, managed from Organization
+            // -> Departments). Optional so existing/legacy flows
+            // that haven't picked one yet don't break.
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Department",
+            default: null,
+            index: true,
+        },
+
+        // Optional formal position from the department's "poste"
+        // registry (see models/JobPosition.js) — carries a defined
+        // salary band and required skills independent of who holds
+        // it. `jobTitle` below stays free text for employees whose
+        // exact role doesn't have a formal position defined yet, or
+        // for quick data entry; the two aren't mutually exclusive.
+        jobPosition: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "JobPosition",
+            default: null,
+        },
+
+        service: {
+            type: String,
+            trim: true,
+        },
+
+        position: {
+            type: String,
+            trim: true,
+        },
+
+        manager: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Employee",
+            default: null,
+        },
+
+        // =========================================================
+        // WORK LOCATION
+        // =========================================================
+
+        workLocation: {
+            type: String,
+            trim: true,
+        },
+
+        // =========================================================
+        // CNSS / TAX INFORMATION
+        // =========================================================
+
+        cnssNumber: {
+            type: String,
+            trim: true,
+            uppercase: true,
+        },
+
+        cnssRegistrationDate: {
+            type: Date,
+        },
+
+        taxIdentificationNumber: {
+            type: String,
+            trim: true,
+        },
+
+        // Professional / tax information
+        taxStatus: {
+            type: String,
+            enum: [
+                "taxable",
+                "non_taxable",
+                "exempt",
+            ],
+            default: "taxable",
+        },
+
+        // =========================================================
+        // FAMILY / TAX DEPENDENTS
+        // =========================================================
+
+        familyStatus: {
+            numberOfChildren: {
+                type: Number,
+                min: 0,
+                default: 0,
+            },
+
+            spouseWorking: {
+                type: Boolean,
+                default: false,
+            },
+        },
+
+        // =========================================================
+        // PAID LEAVE — OPENING BALANCE
+        // =========================================================
+        // Days the employee still had on `asOf` when the company
+        // started using the app (from the previous system/paper).
+        // Leave then accrues from `asOf` instead of the hire date;
+        // seniority still counts from the hire date. Empty = accrue
+        // from the hire date. See services/leaveBalanceService.js.
+        leaveOpeningBalance: {
+            days: { type: Number, default: null },
+            asOf: { type: Date, default: null },
+            note: { type: String, trim: true, maxlength: 300 },
+        },
+
+        // =========================================================
+        // BANKING
+        // =========================================================
+
+        bank: {
+            bankName: {
+                type: String,
+                trim: true,
+            },
+
+            accountName: {
+                type: String,
+                trim: true,
+            },
+
+            rib: {
+                type: String,
+                trim: true,
+            },
+
+            iban: {
+                type: String,
+                trim: true,
+            },
+        },
+
+        // =========================================================
+        // PAYMENT SETTINGS
+        // =========================================================
+
+        paymentMethod: {
+            type: String,
+            enum: [
+                "bank_transfer",
+                "cash",
+                "check",
+            ],
+            default: "bank_transfer",
+        },
+
+        // =========================================================
+        // WORK SCHEDULE
+        // =========================================================
+
+        workSchedule: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "WorkSchedule",
+            default: null,
+        },
+
+        // =========================================================
+        // PROFILE
+        // =========================================================
+
+        photo: {
+            url: {
+                type: String,
+                trim: true,
+            },
+
+            publicId: {
+                type: String,
+                trim: true,
+            },
+        },
+
+        notes: {
+            type: String,
+            trim: true,
+            maxlength: 5000,
+        },
+
+        // =========================================================
+        // SYSTEM
+        // =========================================================
+
+        isActive: {
+            type: Boolean,
+            default: true,
+        },
+
+        createdBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
+
+        updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
+    },
+    {
+        timestamps: true,
+    }
+);
+
+// =============================================================
+// INDEXES
+// =============================================================
+
+// Employee number must be unique INSIDE a company
+employeeSchema.index(
+    { company: 1, employeeNumber: 1 },
+    { unique: true }
+);
+
+// These should not necessarily be globally unique
+// because the same CIN/CNSS should only be unique within
+// the company's employee records.
+// Partial (not sparse) indexes. A sparse COMPOUND index only skips
+// documents missing EVERY indexed field — and `company` is always
+// present, so an employee with no CIN was still indexed as
+// (company, null). Two employees in the same company without a
+// CIN (or CNSS number) therefore collided with E11000, even though
+// "not on file yet" is completely normal. The partial filter below
+// indexes ONLY employees that actually have a non-empty value
+// (`$gt: ""` matches non-empty strings only — MongoDB never
+// compares strings against null/missing), so uniqueness is enforced
+// exactly where it should be and nowhere else.
+//
+// Changing index options on an existing database requires the old
+// index to be dropped and rebuilt — see syncEmployeeIndexes in
+// server.js, which does that automatically at startup.
+employeeSchema.index(
+    { company: 1, cin: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { cin: { $gt: "" } },
+    }
+);
+
+employeeSchema.index(
+    { company: 1, cnssNumber: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { cnssNumber: { $gt: "" } },
+    }
+);
+
+employeeSchema.index({ company: 1, employmentStatus: 1 });
+employeeSchema.index({ company: 1, department: 1 });
+employeeSchema.index({ company: 1, hireDate: 1 });
+employeeSchema.index({ company: 1, lastName: 1 });
+
+// Multilingual content layer (see plugins/translatable.js) for the
+// free-text field(s) below — every language in config/i18nContent.js's
+// CONTENT_LANGUAGES gets its own auto-translated + manually-editable slot.
+employeeSchema.plugin(translatable, { fields: ["jobTitle", "service", "position", "workLocation", "notes"] });
+
+module.exports = mongoose.model("Employee", employeeSchema);
