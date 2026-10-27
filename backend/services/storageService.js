@@ -11,6 +11,12 @@ const path = require("path");
  * here.
  *
  * Where files live
+ *   cloudinary  Cloudinary, only when R2 is not configured and CLOUDINARY_URL (or CLOUDINARY_CLOUD_NAME,
+ *          CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET) is set. Photos
+ *          and logos are public images; documents are "authenticated"
+ *          raw files, opened with a signed download link that expires
+ *          after a few minutes (works even when the account blocks PDF
+ *          delivery). CLOUDINARY_FOLDER prefixes every key (default "sanity").
  *   r2     Cloudflare R2 (S3-compatible), when R2_ACCOUNT_ID,
  *          R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET are set.
  *            R2_BUCKET          public bucket: photos and logos, served
@@ -46,7 +52,8 @@ const IMAGE_MAX = 1000;
 const THUMB_MAX = 320;
 
 const r2Configured = () => !!(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
-const driver = () => (r2Configured() ? "r2" : "local");
+const cloudinaryConfigured = () => !!(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET));
+const driver = () => (r2Configured() ? "r2" : cloudinaryConfigured() ? "cloudinary" : "local");
 const defaultQuotaMB = () => {
   const n = Number(process.env.STORAGE_DEFAULT_QUOTA_MB);
   return Number.isFinite(n) && n >= 0 && process.env.STORAGE_DEFAULT_QUOTA_MB !== "" && process.env.STORAGE_DEFAULT_QUOTA_MB !== undefined ? n : 1024;
@@ -68,6 +75,27 @@ function r2() {
   }
   return s3;
 }
+let cld;
+function cloudinary() {
+  if (!cld) {
+    cld = require("cloudinary").v2;
+    // CLOUDINARY_URL is read by the SDK itself; the three separate variables are passed here.
+    if (!process.env.CLOUDINARY_URL) {
+      cld.config({ cloud_name: process.env.CLOUDINARY_CLOUD_NAME, api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET });
+    }
+    cld.config({ secure: true });
+  }
+  return cld;
+}
+const cldFolder = () => String(process.env.CLOUDINARY_FOLDER ?? "sanity").replace(/^\/+|\/+$/g, "");
+// Public images are stored as "image" (public id without extension, served as WebP);
+// private documents as "raw" + "authenticated" (public id keeps its extension).
+const cldId = (key, isPrivate) => {
+  const id = cldFolder() ? `${cldFolder()}/${key}` : key;
+  return isPrivate ? id : id.replace(/\.[^./]+$/, "");
+};
+const cldKind = (isPrivate) => (isPrivate ? { resource_type: "raw", type: "authenticated" } : { resource_type: "image", type: "upload" });
+
 const bucketFor = (isPrivate) => (isPrivate ? process.env.R2_PRIVATE_BUCKET || process.env.R2_BUCKET : process.env.R2_BUCKET);
 const localDir = () => path.resolve(process.env.STORAGE_LOCAL_DIR || path.join(__dirname, "..", "uploads"));
 const localPath = (key, isPrivate) => {
@@ -78,6 +106,10 @@ const localPath = (key, isPrivate) => {
 const apiBase = () => (process.env.PUBLIC_API_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/+$/, "");
 
 function publicUrl(drv, key) {
+  if (drv === "cloudinary") {
+    const ext = (/\.([^./]+)$/.exec(key) || [])[1];
+    return cloudinary().url(cldId(key, false), { resource_type: "image", type: "upload", secure: true, urlAnalytics: false, ...(ext ? { format: ext } : {}) });
+  }
   if (drv === "r2") {
     const base = String(process.env.R2_PUBLIC_URL || "").replace(/\/+$/, "");
     if (!base) throw httpError(503, "R2_PUBLIC_URL is not configured (the public address of the photos bucket)");
@@ -87,6 +119,11 @@ function publicUrl(drv, key) {
 }
 
 async function putObject(drv, key, body, contentType, isPrivate, downloadName) {
+  if (drv === "cloudinary") {
+    const data = `data:${contentType || "application/octet-stream"};base64,${Buffer.from(body).toString("base64")}`;
+    await cloudinary().uploader.upload(data, { public_id: cldId(key, isPrivate), ...cldKind(isPrivate), overwrite: false, ...(downloadName ? { context: { name: downloadName } } : {}) });
+    return;
+  }
   if (drv === "r2") {
     const { PutObjectCommand } = require("@aws-sdk/client-s3");
     await r2().send(new PutObjectCommand({
@@ -105,6 +142,10 @@ async function putObject(drv, key, body, contentType, isPrivate, downloadName) {
 }
 
 async function deleteObject(drv, key, isPrivate) {
+  if (drv === "cloudinary") {
+    await cloudinary().uploader.destroy(cldId(key, isPrivate), { ...cldKind(isPrivate), invalidate: true });
+    return;
+  }
   if (drv === "r2") {
     const { DeleteObjectCommand } = require("@aws-sdk/client-s3");
     await r2().send(new DeleteObjectCommand({ Bucket: bucketFor(isPrivate), Key: key }));
@@ -281,7 +322,7 @@ async function uploadPrivateFile(buffer, folder, originalName, mimetype, { compa
 }
 
 const parseRef = (publicId) => {
-  const m = /^(r2|local):(.+)$/.exec(String(publicId || ""));
+  const m = /^(cloudinary|r2|local):(.+)$/.exec(String(publicId || ""));
   return m ? { drv: m[1], key: m[2] } : null;
 };
 
@@ -324,6 +365,11 @@ async function privateFileUrl(file, { ttlSeconds = FILE_LINK_TTL_SECONDS } = {})
   const ref = parseRef(file.publicId);
   if (!file.private) return file.url || (ref ? publicUrl(ref.drv, ref.key) : null);
   if (!ref) return null; // private file from before R2: no longer reachable
+  if (ref.drv === "cloudinary") {
+    return cloudinary().utils.private_download_url(cldId(ref.key, true), "", {
+      resource_type: "raw", type: "authenticated", expires_at: Math.floor(Date.now() / 1000) + ttlSeconds,
+    });
+  }
   if (ref.drv === "r2") {
     const { GetObjectCommand } = require("@aws-sdk/client-s3");
     const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
@@ -348,7 +394,7 @@ const localPublicDir = () => path.join(localDir(), "public");
 function status() {
   return {
     driver: driver(),
-    publicUrl: driver() === "r2" ? process.env.R2_PUBLIC_URL || null : `${apiBase()}/uploads`,
+    publicUrl: driver() === "cloudinary" ? `https://res.cloudinary.com/${cloudinary().config().cloud_name}` : driver() === "r2" ? process.env.R2_PUBLIC_URL || null : `${apiBase()}/uploads`,
     privateBucket: driver() === "r2" ? process.env.R2_PRIVATE_BUCKET || null : null,
     defaultQuotaMB: defaultQuotaMB(),
   };

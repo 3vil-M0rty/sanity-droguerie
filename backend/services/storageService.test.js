@@ -15,6 +15,8 @@ process.env.STORAGE_LOCAL_DIR = dir;
 process.env.JWT_SECRET = "storage-test-secret";
 process.env.PUBLIC_API_URL = "http://api.test";
 delete process.env.R2_ACCOUNT_ID;
+delete process.env.CLOUDINARY_URL;
+delete process.env.CLOUDINARY_CLOUD_NAME;
 
 const tenantScope = require("./tenantScope");
 const fake = require("../test/fakeMongo");
@@ -223,6 +225,48 @@ describe("Cloudflare R2 driver", () => {
     } finally {
       spy.mockRestore();
       for (const k of ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "R2_PRIVATE_BUCKET", "R2_PUBLIC_URL"]) delete process.env[k];
+    }
+  });
+
+  it("Cloudinary wins when configured: public images, authenticated raw documents, signed download links", async () => {
+    Object.assign(process.env, { CLOUDINARY_CLOUD_NAME: "demo-cloud", CLOUDINARY_API_KEY: "123456", CLOUDINARY_API_SECRET: "test-secret", R2_ACCOUNT_ID: "acc123", R2_ACCESS_KEY_ID: "key", R2_SECRET_ACCESS_KEY: "secret", R2_BUCKET: "b" });
+    const cld = require("cloudinary").v2;
+    const uploads = [];
+    const destroys = [];
+    const up = vi.spyOn(cld.uploader, "upload").mockImplementation(async (data, opts) => { uploads.push({ data, opts }); return {}; });
+    const del = vi.spyOn(cld.uploader, "destroy").mockImplementation(async (id, opts) => { destroys.push({ id, opts }); return { result: "ok" }; });
+    try {
+      expect(storage.driver()).toBe("cloudinary");
+      const pic = await photo(800, 600);
+      const img = await sys(() => storage.uploadImage(pic, `companies/${companyId}/products`, { companyId }));
+      expect(img.public_id).toMatch(/^cloudinary:t[a-f0-9]{24}\/companies\//);
+      expect(img.secure_url).toMatch(/^https:\/\/res\.cloudinary\.com\/demo-cloud\/image\/upload\/(v1\/)?sanity\/t[a-f0-9]{24}\/companies\/.+\.webp$/);
+      expect(img.thumb_url).toMatch(/_t\.webp$/);
+      expect(uploads[0].opts).toMatchObject({ resource_type: "image", type: "upload" });
+      expect(uploads[0].opts.public_id).not.toMatch(/\.webp$/);
+      expect(uploads[0].data).toMatch(/^data:image\/webp;base64,/);
+
+      const doc = await sys(() => storage.uploadPrivateFile(Buffer.from("%PDF"), "companies/x/hr", "CIN.pdf", "application/pdf", { companyId }));
+      expect(doc.resourceType).toBe("cloudinary");
+      expect(uploads[2].opts).toMatchObject({ resource_type: "raw", type: "authenticated" });
+      expect(uploads[2].opts.public_id).toMatch(/^sanity\/.+\.pdf$/);
+
+      const before = Math.floor(Date.now() / 1000);
+      const u = new URL(await storage.privateFileUrl(doc, { ttlSeconds: 120 }));
+      expect(u.hostname).toBe("api.cloudinary.com");
+      expect(u.searchParams.get("type")).toBe("authenticated");
+      expect(u.searchParams.get("signature")).toBeTruthy();
+      expect(Number(u.searchParams.get("expires_at"))).toBeGreaterThanOrEqual(before + 120);
+
+      await sys(() => storage.deleteImage(img.public_id));
+      await sys(() => storage.deleteFile(doc.publicId));
+      expect(destroys).toHaveLength(3); // photo + thumbnail + document
+      expect(destroys[2].opts).toMatchObject({ resource_type: "raw", type: "authenticated" });
+      expect((await usage()).usedBytes).toBe(0);
+    } finally {
+      up.mockRestore();
+      del.mockRestore();
+      for (const k of ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"]) delete process.env[k];
     }
   });
 

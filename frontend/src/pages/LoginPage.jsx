@@ -137,7 +137,7 @@ export default function LoginPage() {
         )}
 
         <ShinyText
-          text="⬡ FRAME powered by: "
+          text={t("powered")}
           a="HB"
           mail="belmoudden.hicham@gmail.com"
           className={styles.shinyText}

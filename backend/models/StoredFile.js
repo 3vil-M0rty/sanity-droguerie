@@ -18,7 +18,7 @@ const storedFileSchema = new mongoose.Schema(
   {
     tenant: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", default: null, index: true },
     company: { type: mongoose.Schema.Types.ObjectId, ref: "Company", default: null },
-    driver: { type: String, enum: ["r2", "local"], required: true },
+    driver: { type: String, enum: ["cloudinary", "r2", "local"], required: true },
     key: { type: String, required: true, unique: true },
     group: { type: String, required: true, index: true },
     bytes: { type: Number, required: true, min: 0 },

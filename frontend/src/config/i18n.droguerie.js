@@ -27,6 +27,8 @@ const fr = {
       none: "Aucun client.", nobody: "Personne ne doit rien. Les ventes à crédit faites à la caisse apparaîtront ici.",
       openDebts: "Achats non réglés", payments: "Derniers règlements", settled: "Tout est réglé.", customerCard: "Fiche client", owes: "Doit :",
       paid: "{amount} encaissés. Reste à payer : {rest}.",
+      waSent: "Message WhatsApp envoyé à {name}.",
+      waSending: "Envoi…",
       waText: "Bonjour {name}, petit rappel amical de {shop} : il reste {amount} sur votre carnet. Merci et bonne journée !",
     },
     purchase: {
@@ -70,6 +72,8 @@ const en = {
       none: "No customer.", nobody: "Nobody owes anything. Credit sales made at the till will show here.",
       openDebts: "Unpaid purchases", payments: "Latest payments", settled: "Everything is paid.", customerCard: "Customer card", owes: "Owes:",
       paid: "{amount} collected. Still to pay: {rest}.",
+      waSent: "WhatsApp message sent to {name}.",
+      waSending: "Sending…",
       waText: "Hello {name}, a friendly reminder from {shop}: {amount} is still on your account. Thank you!",
     },
     purchase: {
@@ -113,6 +117,8 @@ const ar = {
       none: "لا يوجد زبون.", nobody: "لا أحد مدين. المبيعات بالكريدي من الصندوق ستظهر هنا.",
       openDebts: "مشتريات غير مسددة", payments: "آخر الأداءات", settled: "كل شيء مسدد.", customerCard: "بطاقة الزبون", owes: "مدين بـ:",
       paid: "تم استخلاص {amount}. الباقي: {rest}.",
+      waSent: "تم إرسال رسالة واتساب إلى {name}.",
+      waSending: "جاري الإرسال…",
       waText: "السلام عليكم {name}، تذكير ودي من {shop}: يتبقى {amount} في الكارني ديالك. شكرا!",
     },
     purchase: {

@@ -13,6 +13,13 @@ export const paySupplier = async (supplierId, body) => data(await api.post(`/dro
 export const quickArticle = async (body) => data(await api.post("/droguerie/articles/quick", body));
 export const quickPurchase = async (body) => data(await api.post("/droguerie/purchases", body));
 
+/**
+ * Sends the customer their carnet reminder (with their statement PDF link) through the
+ * backend: WhatsApp Business API when it is configured, else the answer carries a
+ * wa.me `url` for the browser to open.
+ */
+export const sendCarnetWhatsapp = async (customerId, message) => data(await api.post(`/messaging/customers/${customerId}/statement/whatsapp`, { message }));
+
 /** wa.me link with a polite reminder of what the customer owes. */
 export function whatsappReminder(phone, text) {
   let n = String(phone || "").replace(/[^\d+]/g, "");

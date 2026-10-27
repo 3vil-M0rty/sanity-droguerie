@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 import { Store, ShoppingCart, BookOpen, Truck, PackagePlus, Boxes, AlertTriangle } from "lucide-react";
 import { useI18n } from "../../hooks/useI18n";
 import { useAuth } from "../../hooks/useAuth";
-import { getShopHome, whatsappReminder } from "../../services/droguerieService";
+import { getShopHome } from "../../services/droguerieService";
 import { useCompanyPicker, PageTop, CompanyFilter, formatMoney, errorText } from "../negoce/common";
 import styles from "../purchasing/Purchasing.module.css";
 import d from "./Droguerie.module.css";
+import WhatsAppButton from "./WhatsAppButton";
 
 /**
  * Sanity Droguerie — the shop home: big buttons for what the shop does
@@ -19,6 +20,7 @@ export default function Boutique() {
   const { companyId, setCompanyId, options } = useCompanyPicker();
   const [home, setHome] = useState(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     if (!companyId) return;
@@ -31,6 +33,7 @@ export default function Boutique() {
       <PageTop crumbs={[{ label: t("dg.menu.home") }]} icon={Store} title={`${t("dg.home.hello")} ${user?.firstName || ""}`} subtitle={shop ? `${shop} — ${t("dg.home.subtitle")}` : t("dg.home.subtitle")} />
       <div className={styles.toolbar}><CompanyFilter companyId={companyId} setCompanyId={setCompanyId} options={options} /></div>
       {error && <div className="errorMessage">{error}</div>}
+      {notice && <div className="successMessage">{notice}</div>}
 
       <div className={d.tiles}>
         <Link to="/pos" className={`${d.tile} ${d.tilePrimary}`}><ShoppingCart size={26} />{t("dg.home.sell")}<small>{home?.session ? `${t("dg.home.tillOpen")} ${home.session.number}` : t("dg.home.tillClosed")}</small></Link>
@@ -58,13 +61,13 @@ export default function Boutique() {
               <h3><BookOpen size={15} /> {t("dg.home.topDebtors")}</h3>
               <ul className={d.list}>
                 {home.carnet.top.map((c) => {
-                  const wa = whatsappReminder(c.phone, t("dg.carnet.waText").replace("{name}", c.name).replace("{amount}", formatMoney(c.due)).replace("{shop}", shop));
+                  const text = t("dg.carnet.waText").replace("{name}", c.name).replace("{amount}", formatMoney(c.due)).replace("{shop}", shop);
                   return (
                     <li key={c._id}>
                       <Link to={`/boutique/carnet?c=${c._id}`}>{c.name}</Link>
                       <span>
                         <strong className={d.owed}>{formatMoney(c.due)}</strong>
-                        {wa && <> {" "}<a className={d.wa} href={wa} target="_blank" rel="noopener noreferrer">WhatsApp</a></>}
+                        {" "}<WhatsAppButton customer={c} text={text} onSent={setNotice} onError={setError} />
                       </span>
                     </li>
                   );

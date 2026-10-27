@@ -15,7 +15,7 @@ async function run() {
   const Tenant = require("../models/Tenant");
   const storage = require("../services/storageService");
   await tenantScope.runAsSystem(async () => {
-    console.log(`Storage: ${storage.status().driver === "r2" ? "Cloudflare R2" : "local disk (R2 not configured)"}`);
+    console.log(`Storage: ${({ cloudinary: "Cloudinary", r2: "Cloudflare R2" })[storage.status().driver] || "local disk (no cloud storage configured)"}`);
     for (const t of await Tenant.find().select("name").sort({ name: 1 }).lean()) {
       const { files } = await storage.recount(t._id); // eslint-disable-line no-await-in-loop
       const u = await storage.usage(t._id); // eslint-disable-line no-await-in-loop

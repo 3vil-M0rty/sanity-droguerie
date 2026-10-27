@@ -4,11 +4,12 @@ import { BookOpen, Banknote, X, UserPlus } from "lucide-react";
 import { useI18n } from "../../hooks/useI18n";
 import { useCan } from "../../hooks/useCan";
 import CustomSelect from "../../components/useful/CustomSelect";
-import { getCarnet, getCarnetAccount, payCarnet, whatsappReminder } from "../../services/droguerieService";
+import { getCarnet, getCarnetAccount, payCarnet } from "../../services/droguerieService";
 import { createCustomer } from "../../services/salesService";
 import { useCompanyPicker, PageTop, CompanyFilter, formatMoney, formatDate, errorText } from "../negoce/common";
 import styles from "../purchasing/Purchasing.module.css";
 import d from "./Droguerie.module.css";
+import WhatsAppButton from "./WhatsAppButton";
 
 const METHODS = ["especes", "cheque", "virement", "carte", "effet"];
 
@@ -44,7 +45,8 @@ export default function Carnet() {
     getCarnetAccount(open).then(setAccount).catch((err) => setError(errorText(err, t, "sales.errors.load")));
   }, [open, t]);
 
-  const reminder = (c, due) => whatsappReminder(c.whatsapp || c.phone, t("dg.carnet.waText").replace("{name}", c.name).replace("{amount}", formatMoney(due)).replace("{shop}", shop));
+  const reminderText = (c, due) => (t("dg.carnet.waText").replace("{name}", c.name).replace("{amount}", formatMoney(due)).replace("{shop}", shop));
+  const waProps = { onSent: (m) => { setError(""); setNotice(m); }, onError: setError };
 
   const submitPay = async () => {
     setError("");
@@ -84,7 +86,6 @@ export default function Carnet() {
 
       <div className={d.rows}>
         {data.rows.map((c) => {
-          const wa = c.due > 0 && reminder(c, c.due);
           return (
             <div key={c._id} className={d.row}>
               <div>
@@ -95,7 +96,7 @@ export default function Carnet() {
               <div className={d.actions}>
                 <button type="button" className="btnEdit" onClick={() => setParams({ c: c._id })}>{t("dg.carnet.details")}</button>
                 {c.due > 0 && can("sales.payments.create") && <button type="button" className="btnPrimary" onClick={() => setPay({ customer: c, due: c.due, amount: String(c.due), method: "especes", reference: "" })}><Banknote size={14} /> {t("dg.carnet.receive")}</button>}
-                {wa && <a className={d.wa} href={wa} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
+                {c.due > 0 && <WhatsAppButton customer={c} text={reminderText(c, c.due)} {...waProps} />}
               </div>
             </div>
           );
@@ -122,6 +123,7 @@ export default function Carnet() {
             </ul>
             <div className={styles.modalActions}>
               {account.due > 0 && can("sales.payments.create") && <button type="button" className="btnPrimary" onClick={() => setPay({ customer: account.customer, due: account.due, amount: String(account.due), method: "especes", reference: "" })}><Banknote size={14} /> {t("dg.carnet.receive")}</button>}
+              {account.due > 0 && <WhatsAppButton customer={account.customer} text={reminderText(account.customer, account.due)} {...waProps} />}
               <Link className="btnEdit" to={`/sales/customers`}>{t("dg.carnet.customerCard")}</Link>
             </div>
           </div>

@@ -128,6 +128,35 @@ const CUSTOMERS = [
   ["Rachid (maçon)", "0665678905", 2000],
 ];
 
+/**
+ * One picture per article (its family's) and the shop logo, stored like uploaded
+ * photos (services/storageService.js). A storage failure doesn't stop the seed.
+ */
+async function addPictures(company, families) {
+  const storage = require("../services/storageService");
+  const { articlePicture, shopLogo } = require("./demoPictures");
+  const Product = require("../models/Product");
+  const familyOf = new Map(Object.entries(families).map(([name, id]) => [String(id), name]));
+  const products = await Product.find({ company: company._id }).select("category").lean();
+  let stored = 0;
+  try {
+    const logo = await storage.uploadImage(await shopLogo(), `companies/${company._id}/logo`, { companyId: company._id });
+    await Company.updateOne({ _id: company._id }, { $set: { logo: { url: logo.secure_url, publicId: logo.public_id } } });
+    stored += 1;
+    for (let i = 0; i < products.length; i += 4) {
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.all(products.slice(i, i + 4).map(async (p, j) => {
+        const img = await storage.uploadImage(await articlePicture(familyOf.get(String(p.category)), i + j), `companies/${company._id}/products`, { companyId: company._id });
+        await Product.updateOne({ _id: p._id }, { $set: { image: { url: img.secure_url, publicId: img.public_id, thumbUrl: img.thumb_url } } });
+        stored += 1;
+      }));
+    }
+  } catch (err) {
+    console.warn(`  (pictures stopped: ${err.message})`);
+  }
+  return stored;
+}
+
 /** Small HTTP client over the in-process API. */
 function client(base, token) {
   const call = async (method, url, body) => {
@@ -237,6 +266,10 @@ async function seedDroguerieClient({ log = console.log } = {}) {
       paid: { amount: 0 },
     });
     log(`✓ ${articles.length} articles, ${SUPPLIERS.length} wholesalers`);
+
+    // ---------------- pictures: article photos and the shop logo (Cloudinary when configured)
+    const pictures = await tenantScope.runInTenant(ctx, () => addPictures(company, families));
+    log(`✓ ${pictures} pictures stored (${require("../services/storageService").driver()})`);
 
     // ---------------- the carnet's customers
     const customers = [];

@@ -24,7 +24,8 @@
 .row strong { font-size: 0.98rem; }
 .amount { font-weight: 800; font-size: 1.1rem; text-align: right; white-space: nowrap; }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-.wa { background: #16a34a; border: 1px solid #16a34a; color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+.wa { background: #16a34a; border: 1px solid #16a34a; color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-family: inherit; }
+.wa:disabled { opacity: 0.6; cursor: wait; }
 .search { flex: 1; min-width: 200px; padding: 10px 12px; font-size: 1rem; }
 .lines { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 8px 0; }
 .lines th { text-align: left; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-tertiary); padding: 6px; border-bottom: 1px solid var(--color-border); }
