@@ -435,6 +435,7 @@ const ROUTE_PERMISSIONS = {
   products: [
     ["GET /suggestions", ["inventory.articles.view", "pos.sales.create"]],
     ["GET /lookup", ["inventory.articles.view", "pos.sales.create"]],
+    ["POST /labels", "inventory.articles.view"],
     ["GET /", ["inventory.articles.view", "pos.sales.create"]],
     ["GET /:id/price", ["inventory.articles.view", "pos.sales.create"]],
     ["GET /:id/supplier-prices", ["purchasing.orders.view", "purchasing.suppliers.view", "finance.amounts.view"]],

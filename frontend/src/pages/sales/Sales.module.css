@@ -14,7 +14,7 @@
 
 .statusBar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
 .statusBar :global(button) { display: inline-flex; align-items: center; gap: 6px; }
-.docMeta { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 18px; margin-bottom: 14px; font-size: 0.84rem; }
+.docMeta { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); gap: 10px 18px; margin-bottom: 14px; font-size: 0.84rem; }
 .docMeta > div { display: flex; flex-direction: column; gap: 3px; }
 .docMeta span { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-tertiary); }
 .linesTable { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
@@ -78,7 +78,9 @@
 
 @media (max-width: 900px) {
   .linesHead { display: none; }
-  .lineRow { grid-template-columns: 1fr 1fr; padding: 8px; border: 1px solid var(--color-border); border-radius: 8px; }
+  .lineRow { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px; border: 1px solid var(--color-border); border-radius: 10px; }
+  /* Article picker and description take the full card width. */
+  .lineRow > :nth-child(-n + 2) { grid-column: 1 / -1; }
   .compare { grid-template-columns: 1fr 1fr; }
 }
 
@@ -89,13 +91,13 @@
 .scanRow { display: flex; align-items: center; gap: 8px; max-width: 520px; margin-bottom: 10px; color: var(--color-text-secondary); }
 .scanRow input { flex: 1; }
 .lineRow small { display: block; margin-top: 2px; font-size: 0.7rem; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin: 14px 0 18px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 12px; margin: 14px 0 18px; }
 .kpi { padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-secondary); display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: inherit; }
 .kpi span { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-tertiary); }
 .kpi strong { font-size: 1.35rem; color: var(--color-text-primary); }
 .kpi small { font-size: 0.75rem; color: var(--color-text-secondary); }
 .twoCols { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; align-items: start; }
-@media (max-width: 1000px) { .twoCols { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .twoCols { grid-template-columns: minmax(0, 1fr); } }
 .card { padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-secondary); }
 .card h3 { margin: 0 0 10px; font-size: 0.95rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }

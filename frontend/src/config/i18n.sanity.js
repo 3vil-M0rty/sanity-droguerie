@@ -265,6 +265,14 @@ const ar = {
 // Card catalogue (familles → articles) and the article shortcuts.
 const catalog = {
   fr: {
+    labels: {
+      button: "Étiquettes", title: "Imprimer des étiquettes code-barres",
+      hint: "Choisissez les articles et le nombre d'étiquettes. Les articles sans code reçoivent un code-barres maison (EAN-13), lisible tout de suite à la caisse.",
+      search: "Ajouter un article : nom, référence, code-barres…", empty: "Aucun article. Cherchez-en un ci-dessus, ou ouvrez une famille avant de cliquer sur « Étiquettes ».",
+      newCode: "code créé à l'impression", copies: "Nombre d'étiquettes", asStock: "Une étiquette par article en stock",
+      format: "Format", roll: "Rouleau thermique 40 × 30 mm (imprimante d'étiquettes)", a4: "Planche A4 de 24 étiquettes 70 × 37 mm (imprimante bureau)",
+      skip: "Cases déjà utilisées", print: "Imprimer {n} étiquette(s)",
+    },
     subtitle: "Familles, articles en photo, stock, prix d'achat fournisseurs et prix de vente.",
     cards: "Cartes", table: "Tableau", allFamilies: "Toutes les familles", subFamilies: "Sous-familles", articlesCount: "articles", subFamiliesCount: "sous-familles",
     state: { ok: "En stock", low: "Stock bas", out: "Rupture" }, reservedShort: "réservé", publicTtc: "prix public TTC",
@@ -277,6 +285,14 @@ const catalog = {
     photo: "Photo", photoUrl: "Lien de la photo (https://…)", photoUpload: "Téléverser une photo", photoRemove: "Retirer la photo", photoSaved: "Photo enregistrée.",
   },
   en: {
+    labels: {
+      button: "Labels", title: "Print barcode labels",
+      hint: "Choose the articles and how many labels each. Articles without a code get an in-store barcode (EAN-13) that scans at the till right away.",
+      search: "Add an article: name, reference, barcode…", empty: "No article yet. Search one above, or open a family before clicking “Labels”.",
+      newCode: "code created when printing", copies: "Number of labels", asStock: "One label per unit in stock",
+      format: "Format", roll: "Thermal roll 40 × 30 mm (label printer)", a4: "A4 sheet of 24 labels 70 × 37 mm (office printer)",
+      skip: "Positions already used", print: "Print {n} label(s)",
+    },
     subtitle: "Families, articles with pictures, stock, supplier buying prices and selling prices.",
     cards: "Cards", table: "Table", allFamilies: "All families", subFamilies: "Sub-families", articlesCount: "articles", subFamiliesCount: "sub-families",
     state: { ok: "In stock", low: "Low stock", out: "Out of stock" }, reservedShort: "reserved", publicTtc: "public price incl. VAT",
@@ -289,6 +305,14 @@ const catalog = {
     photo: "Picture", photoUrl: "Picture link (https://…)", photoUpload: "Upload a picture", photoRemove: "Remove the picture", photoSaved: "Picture saved.",
   },
   ar: {
+    labels: {
+      button: "الملصقات", title: "طباعة ملصقات الباركود",
+      hint: "اختر السلع وعدد الملصقات لكل واحدة. السلع التي ليس لها رمز تحصل على باركود خاص بالمحل (EAN-13) يُقرأ في الصندوق مباشرة.",
+      search: "أضف سلعة: الاسم، المرجع، الباركود…", empty: "لا توجد سلع. ابحث عن سلعة أعلاه، أو افتح صنفا قبل الضغط على « الملصقات ».",
+      newCode: "رمز يُنشأ عند الطباعة", copies: "عدد الملصقات", asStock: "ملصق لكل وحدة في المخزون",
+      format: "الحجم", roll: "لفافة حرارية 40 × 30 مم (طابعة ملصقات)", a4: "ورقة A4 من 24 ملصقا 70 × 37 مم (طابعة عادية)",
+      skip: "خانات مستعملة", print: "طباعة {n} ملصق",
+    },
     cards: "بطاقات", table: "جدول", allFamilies: "كل الأصناف", request: "طلب شراء", buyPrices: "أسعار الموردين", sellPrices: "أسعار البيع",
     requestTitle: "طلب شراء", supplierTitle: "أسعار الشراء لدى الموردين", sellingTitle: "أسعار البيع", close: "إغلاق", cancel: "إلغاء", send: "إرسال",
     state: { ok: "متوفر", low: "مخزون منخفض", out: "نفد" },

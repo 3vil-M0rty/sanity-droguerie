@@ -1,5 +1,5 @@
-import React, { createContext, useState, useEffect } from 'react';
-import { translations, SUPPORTED_LANGUAGES, getDefaultLanguage } from '../config/i18n.config';
+import React, { createContext, useState, useEffect, useMemo } from 'react';
+import { translations, SUPPORTED_LANGUAGES, getDefaultLanguage, loadLanguage } from '../config/i18n.config';
 
 export const I18nContext = createContext();
 
@@ -50,19 +50,22 @@ export const I18nProvider = ({ children }) => {
     return text;
   };
 
+  // Non-default languages are separate chunks: switch only once the
+  // dictionary is in, so the screen goes straight to the new language.
   const changeLanguage = (lang) => {
     if (SUPPORTED_LANGUAGES.includes(lang)) {
-      setLanguage(lang);
+      loadLanguage(lang).then(() => setLanguage(lang));
     }
   };
 
-  const value = {
+  // Stable value: consumers only re-render when the language changes.
+  const value = useMemo(() => ({
     language,
     setLanguage: changeLanguage,
     t,
     tVar,
     supportedLanguages: SUPPORTED_LANGUAGES
-  };
+  }), [language]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <I18nContext.Provider value={value}>

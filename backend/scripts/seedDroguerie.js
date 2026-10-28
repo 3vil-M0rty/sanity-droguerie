@@ -179,14 +179,16 @@ function demoApp() {
 /** Moves documents made "now" back to a past day (same time of day). */
 async function backdate(day, { sales, invoices, session, since }) {
   const shift = (d) => new Date(new Date(d).getTime() - day * DAY);
-  for (const s of await PosSale.find({ _id: { $in: sales } }).select("date").lean()) {
-    await PosSale.updateOne({ _id: s._id }, { $set: { date: shift(s.date) } }, { timestamps: false });
-  }
-  for (const inv of await SalesInvoice.find({ _id: { $in: invoices } }).select("date dueDate issuedAt payments").lean()) {
+  // One round trip per collection (bulkWrite), not one per document: the database is often far away.
+  const saleOps = (await PosSale.find({ _id: { $in: sales } }).select("date").lean())
+    .map((s) => ({ updateOne: { filter: { _id: s._id }, update: { $set: { date: shift(s.date) } }, timestamps: false } }));
+  if (saleOps.length) await PosSale.bulkWrite(saleOps, { timestamps: false });
+  const invoiceOps = (await SalesInvoice.find({ _id: { $in: invoices } }).select("date dueDate issuedAt payments").lean()).map((inv) => {
     const set = { date: shift(inv.date), dueDate: shift(inv.dueDate || inv.date), issuedAt: shift(inv.issuedAt || inv.date) };
     (inv.payments || []).forEach((p, i) => { set[`payments.${i}.date`] = shift(p.date); });
-    await SalesInvoice.updateOne({ _id: inv._id }, { $set: set }, { timestamps: false });
-  }
+    return { updateOne: { filter: { _id: inv._id }, update: { $set: set }, timestamps: false } };
+  });
+  if (invoiceOps.length) await SalesInvoice.bulkWrite(invoiceOps, { timestamps: false });
   if (session) {
     const s = await CashSession.findById(session).select("openedAt closedAt").lean();
     await CashSession.updateOne({ _id: session }, { $set: { openedAt: shift(s.openedAt), ...(s.closedAt ? { closedAt: shift(s.closedAt) } : {}) } }, { timestamps: false });
@@ -194,7 +196,7 @@ async function backdate(day, { sales, invoices, session, since }) {
   // Stock history: the movement's date is its creation date.
   try {
     const moves = await InventoryMovement.find({ createdAt: { $gte: since } }).select("createdAt").lean();
-    for (const m of moves) await InventoryMovement.collection.updateOne({ _id: m._id }, { $set: { createdAt: shift(m.createdAt) } });
+    if (moves.length) await InventoryMovement.collection.bulkWrite(moves.map((m) => ({ updateOne: { filter: { _id: m._id }, update: { $set: { createdAt: shift(m.createdAt) } } } })));
   } catch { /* in-memory test database: history dates stay as they are */ }
 }
 
@@ -206,6 +208,19 @@ function rng(seed) {
 
 async function seedDroguerieClient({ log = console.log } = {}) {
   if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET is not set");
+  // No machine translation of the demo's ~100 names: it would use up a free
+  // translation quota (MyMemory: a daily limit) and slow every save.
+  const provider = process.env.TRANSLATION_PROVIDER;
+  process.env.TRANSLATION_PROVIDER = "off";
+  try {
+    return await seedShop({ log });
+  } finally {
+    if (provider === undefined) delete process.env.TRANSLATION_PROVIDER;
+    else process.env.TRANSLATION_PROVIDER = provider;
+  }
+}
+
+async function seedShop({ log }) {
   if (await Tenant.exists({ name: DEMO_TENANT })) throw new Error(`"${DEMO_TENANT}" already exists — run "npm run unseed:droguerie" first`);
 
   // ---------------- client, shop, logins
@@ -267,7 +282,7 @@ async function seedDroguerieClient({ log = console.log } = {}) {
     });
     log(`✓ ${articles.length} articles, ${SUPPLIERS.length} wholesalers`);
 
-    // ---------------- pictures: article photos and the shop logo (Cloudinary when configured)
+    // ---------------- pictures: article photos and the shop logo (Cloudflare R2 when configured)
     const pictures = await tenantScope.runInTenant(ctx, () => addPictures(company, families));
     log(`✓ ${pictures} pictures stored (${require("../services/storageService").driver()})`);
 
@@ -317,6 +332,7 @@ async function seedDroguerieClient({ log = console.log } = {}) {
         await actor.post(`/pos/sessions/${session._id}/close`, { counted: { especes: s?.expected?.especes || 0, carte: s?.expected?.carte || 0 } });
         await tenantScope.runInTenant(ctx, () => backdate(day, { sales: sales.map((x) => x._id), invoices: sales.map((x) => x.invoice?._id).filter(Boolean), session: session._id, since }));
       }
+      log(`  · ${day ? `day −${day}` : "today"}: ${sales.length} tickets (${tickets} so far)`);
     }
     log(`✓ ${tickets} tickets over ${PAST_DAYS + 1} days (today's till open)`);
 

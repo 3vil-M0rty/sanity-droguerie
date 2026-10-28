@@ -12,8 +12,20 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  /* Nothing may make the page wider than the phone: a too-wide element
+     let iOS zoom the whole app out (and kept it zoomed). */
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
 html {
   scroll-behavior: smooth;
+  /* Phones in landscape: don't let iOS inflate font sizes on its own. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -269,7 +281,29 @@ button {
   cursor: pointer;
   border: none;
   font-family: inherit;
-  transition: all 0.2s ease;
+  /* Not `all`: animating layout properties on every button made
+     long lists janky on phones. */
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Touch: no grey flash on tap, and no 300 ms double-tap-zoom wait. */
+a, button, [role="button"], input, select, textarea, label, summary {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+img, svg, video, canvas {
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+/* A fieldset defaults to min-width: min-content, which let wide
+   forms push past the screen edge on phones. */
+fieldset {
+  min-width: 0;
 }
 
 button:disabled {
@@ -285,13 +319,33 @@ input, textarea, select {
   border: 1px solid var(--color-border);
   padding: var(--spacing-md);
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--color-text-primary);
   box-shadow: 0 0 0 2px var(--color-grey-300);
+}
+
+/* Keyboard focus stays visible on everything else. */
+:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: none;
+}
+
+/* iOS Safari zooms the whole page into any field under 16px and
+   never zooms back out. On touch screens fields are 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
 }
 
 
@@ -719,7 +773,7 @@ input[type="file"]:disabled::file-selector-button {
 
 .autoFillGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
   gap: 1rem;
 }
 
@@ -945,28 +999,90 @@ input[type="file"]:disabled::file-selector-button {
 
 /* ---------- Responsive ---------- */
 
-@media (max-width: 900px) {
+/* Touch screens have no hover: the edit/delete icons that fade in on
+   hover are always shown, and cards don't stay "lifted" after a tap. */
+@media (hover: none) {
+  .cardActionIconBtn,
+  .cardActionIconBtnDanger {
+    opacity: 1;
+    transform: none;
+  }
+
+  .resourceCard:hover,
+  .btnPrimary:hover {
+    transform: none;
+  }
+
+  .resourceCard:active {
+    transform: scale(0.99);
+  }
+}
+
+@media (max-width: 1024px) {
+  /* The layout already pads the page (Layout.module.css). */
+  .pageShell {
+    padding: var(--spacing-sm) 0 var(--spacing-md);
+  }
+
+  .pageHeader {
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .pageHeaderActions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
   .autoFillGrid {
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  }
+
+  .emptyStateBlock {
+    min-height: 280px;
+    padding: 2rem 1.25rem;
+  }
+
+  .loadingState {
+    min-height: 240px;
+  }
+}
+
+/* Plain <table>s: a wide one scrolls sideways inside its own box
+   instead of pushing the whole page wider than the screen. */
+@media (max-width: 1024px) {
+  main :has(> table) {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
 @media (max-width: 700px) {
-  .pageShell {
-    padding: 1rem;
-  }
+  h1 { font-size: var(--font-3xl); }
+  h2 { font-size: var(--font-2xl); }
+  h3 { font-size: var(--font-xl); }
 
   .pageHeader {
     flex-direction: column;
-    gap: 1rem;
+    align-items: stretch;
   }
 
-  .btnPrimary {
-    width: 100%;
+  .pageHeaderActions > * {
+    flex: 1 1 auto;
+  }
+
+  .pageTitleRow h1 {
+    font-size: 1.3rem;
   }
 
   .detailGrid {
     grid-template-columns: 1fr;
+  }
+
+  .detailSection {
+    padding: 1.1rem;
   }
 
   .autoFillGrid {
@@ -977,14 +1093,34 @@ input[type="file"]:disabled::file-selector-button {
   .cardActionIconBtnDanger {
     opacity: 1;
     transform: none;
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .tableActionBtn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .dangerZoneBlock {
+    padding: 1.1rem;
+  }
+
+  .dangerZoneBlock > * {
+    width: 100%;
   }
 }
 
 @media (max-width: 480px) {
-  .pageShell {
-    padding: 0.75rem;
+  .btnPrimary {
+    width: 100%;
+  }
+
+  .btnPrimary,
+  .btnEdit,
+  .btnCancel,
+  .btnDelete {
+    min-height: 44px;
   }
 }
 
@@ -1137,14 +1273,74 @@ input[type="file"]:disabled::file-selector-button {
   border-color: rgba(255, 70, 70, 0.45);
 }
 
+/* Phones: each row becomes a card. The header is hidden and its
+   labels are copied onto the cells as data-label
+   (utils/responsiveTables.js), shown as "Label ........ value". */
 @media (max-width: 760px) {
+  .dataTable {
+    border-radius: 14px;
+  }
+
   .dataTableHead {
     display: none;
   }
 
   .dataTableRow {
     grid-template-columns: 1fr !important;
-    gap: 6px;
+    gap: 2px;
+    padding: 14px 14px 12px;
+  }
+
+  .dataTableRow:hover {
+    background: transparent;
+  }
+
+  .dataTableRow:active {
+    background: var(--color-bg-hover);
+  }
+
+  .dataTableRow > [data-label] {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 24px;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .dataTableRow > [data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    max-width: 50%;
+    color: var(--color-text-tertiary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  /* The first column is the row's title: full width, no label. */
+  .dataTableRow > [data-label]:first-child {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.92rem;
+    text-align: left;
+  }
+
+  .dataTableRow > [data-label]:first-child::before,
+  .dataTableRow > [data-label=""]::before {
+    content: none;
+  }
+
+  /* Empty / checkbox-only header cells (row actions, selection). */
+  .dataTableRow > [data-label=""] {
+    justify-content: flex-end;
+  }
+
+  .dataTableRow > .dataTableActions {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--color-border);
   }
 }
 

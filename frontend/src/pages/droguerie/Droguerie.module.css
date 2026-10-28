@@ -1,18 +1,18 @@
 /* Sanity Droguerie — big, touch-friendly shop screens. */
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px; margin-bottom: 18px; }
 .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px; min-height: 110px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-secondary); color: var(--color-text-primary); text-decoration: none; font-weight: 700; font-size: 1.05rem; cursor: pointer; text-align: left; }
 .tile:hover { border-color: #6ea8fe; }
 .tile small { font-weight: 500; font-size: 0.8rem; color: var(--color-text-secondary); }
 .tilePrimary { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
 .tilePrimary small { color: #dbe6ff; }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; margin-bottom: 18px; }
 .stat { padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-secondary); }
 .stat span { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--color-text-tertiary); }
 .stat strong { display: block; font-size: 1.45rem; margin-top: 4px; }
 .stat small { color: var(--color-text-secondary); }
 .owed { color: #c2410c; }
 .good { color: #15803d; }
-.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
 .box { padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-secondary); }
 .box h3 { margin: 0 0 10px; font-size: 0.95rem; }
 .list { list-style: none; margin: 0; padding: 0; }

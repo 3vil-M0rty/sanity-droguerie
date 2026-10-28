@@ -43,7 +43,16 @@
 .send:disabled { opacity: 0.4; cursor: default; }
 .note { margin: 0; padding: 0 14px 10px; font-size: 0.68rem; color: var(--color-text-tertiary); }
 
+@media (max-width: 1024px) {
+  .fab { right: calc(16px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .panel { height: min(640px, calc(100dvh - 44px)); }
+}
 @media (max-width: 600px) {
-  .panel { right: 8px; bottom: 8px; width: calc(100vw - 16px); height: calc(100vh - 16px); }
+  /* Full-screen sheet on phones. */
+  .panel { inset: 0; right: 0; bottom: 0; width: 100%; height: 100dvh; border: 0; border-radius: 0; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  .fab { padding: 13px; }
   .fab span { display: none; }
+}
+@media (hover: none) {
+  .fab:hover { transform: none; }
 }

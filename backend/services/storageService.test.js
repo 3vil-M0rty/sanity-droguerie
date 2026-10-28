@@ -228,7 +228,7 @@ describe("Cloudflare R2 driver", () => {
     }
   });
 
-  it("Cloudinary wins when configured: public images, authenticated raw documents, signed download links", async () => {
+  it("R2 wins over Cloudinary; Cloudinary alone: public images, authenticated raw documents, signed download links", async () => {
     Object.assign(process.env, { CLOUDINARY_CLOUD_NAME: "demo-cloud", CLOUDINARY_API_KEY: "123456", CLOUDINARY_API_SECRET: "test-secret", R2_ACCOUNT_ID: "acc123", R2_ACCESS_KEY_ID: "key", R2_SECRET_ACCESS_KEY: "secret", R2_BUCKET: "b" });
     const cld = require("cloudinary").v2;
     const uploads = [];
@@ -236,6 +236,8 @@ describe("Cloudflare R2 driver", () => {
     const up = vi.spyOn(cld.uploader, "upload").mockImplementation(async (data, opts) => { uploads.push({ data, opts }); return {}; });
     const del = vi.spyOn(cld.uploader, "destroy").mockImplementation(async (id, opts) => { destroys.push({ id, opts }); return { result: "ok" }; });
     try {
+      expect(storage.driver()).toBe("r2"); // Cloudflare first when both are configured
+      for (const k of ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"]) delete process.env[k];
       expect(storage.driver()).toBe("cloudinary");
       const pic = await photo(800, 600);
       const img = await sys(() => storage.uploadImage(pic, `companies/${companyId}/products`, { companyId }));

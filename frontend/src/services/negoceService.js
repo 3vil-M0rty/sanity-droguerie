@@ -160,3 +160,6 @@ export const getTargets = async (params) => data(await api.get(`/sales-reps/targ
 export const saveTarget = async (body) => data(await api.put("/sales-reps/targets", body));
 export const getCollections = async (params) => data(await api.get(`/sales-reps/collections?${qs(params)}`));
 export const addCollectionAction = async (invoiceId, body) => data(await api.post(`/sales-reps/collections/${invoiceId}/actions`, body));
+
+// Barcode labels (PDF): { companyId, items: [{ product, copies }], format: "roll" | "a4", skip? }
+export const printLabels = async (body) => (await api.post("/products/labels", body, { responseType: "blob" })).data;

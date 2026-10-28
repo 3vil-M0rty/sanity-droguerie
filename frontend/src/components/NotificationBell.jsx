@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Bell, Check } from "lucide-react";
 
 import { useI18n } from "../hooks/useI18n";
+import { useVisiblePolling } from "../hooks/useVisiblePolling";
 import {
   getNotifications,
   markNotificationRead,
@@ -45,11 +46,7 @@ export default function NotificationBell() {
     }
   };
 
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, []);
+  useVisiblePolling(load, POLL_INTERVAL_MS);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

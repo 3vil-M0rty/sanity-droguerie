@@ -19,7 +19,12 @@
 /* ---------- inputs / forms ---------- */
 .input { box-sizing: border-box; width: 100%; padding: 8px 10px; font-size: 0.84rem; color-scheme: var(--color-scheme); }
 .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; font-size: 0.8rem; color: var(--color-text-secondary); }
-.formGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 14px; }
+.formGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 0 14px; }
+@media (max-width: 480px) {
+  .formGrid { grid-template-columns: minmax(0, 1fr); }
+  /* Inline "span 2" fields would otherwise add a phantom column. */
+  .formGrid > * { grid-column: 1 / -1 !important; }
+}
 .formActions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 12px; }
 .formActions button, .formActions label, .headerActions button { display: inline-flex; align-items: center; gap: 6px; }
 .headerActions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -61,7 +66,7 @@
 .timelineDate { min-width: 130px; font-size: 0.74rem; color: var(--color-text-tertiary); }
 
 /* ---------- recap figures ---------- */
-.summaryGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.summaryGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: 10px; margin-bottom: 18px; }
 .summaryCard {
   display: flex; flex-direction: column; gap: 6px; padding: 12px 14px;
   border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-primary);
@@ -72,7 +77,7 @@
 .totalsBlock { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 22px; margin-top: 10px; font-size: 0.84rem; }
 
 /* ---------- receptions ---------- */
-.recLines { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; margin-bottom: 10px; }
+.recLines { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 8px 16px; margin-bottom: 10px; }
 .recLine { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; }
 
 /* ---------- lines editor ---------- */
@@ -90,10 +95,20 @@
 .modalCard { width: 100%; max-width: 460px; padding: 20px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-primary); }
 .modalCard h3 { margin: 0 0 6px; font-size: 1rem; }
 .modalActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.modalCard { max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; }
+/* Phones: dialogs slide up as a bottom sheet. */
+@media (max-width: 600px) {
+  .modalOverlay { align-items: flex-end; padding: 0; }
+  .modalCard { max-width: none; max-height: 92dvh; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; animation: sheetUp 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
+  .modalActions { flex-wrap: wrap; }
+  .modalActions > * { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+}
+@keyframes sheetUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 @media (max-width: 800px) {
   .linesHead { display: none; }
-  .lineRow { grid-template-columns: 1fr 1fr; padding: 8px; border: 1px solid var(--color-border); border-radius: 10px; }
+  .lineRow { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px; border: 1px solid var(--color-border); border-radius: 10px; }
+  .lineRow > :first-child { grid-column: 1 / -1; }
 }
 
 /* lines editor without price columns (a price request being written) */
@@ -102,7 +117,7 @@
 .lineRowNoPrice { margin-bottom: 6px; }
 @media (max-width: 800px) {
   .linesHeadNoPrice { display: none; }
-  .lineRowNoPrice { grid-template-columns: 1fr 1fr; padding: 8px; border: 1px solid var(--color-border); border-radius: 10px; }
+  .lineRowNoPrice { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px; border: 1px solid var(--color-border); border-radius: 10px; }
 }
 
 /* supplier prices editor */

@@ -1,13 +1,18 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import Breadcrumbs from "./Breadcrumbs";
 import { I18nProvider } from "../../context/i18nContext";
 import { useI18n } from "../../hooks/useI18n";
+import { loadLanguage } from "../../config/i18n.config";
 
 // The provider reads the saved language from localStorage.
 let savedLanguage = "fr";
 globalThis.localStorage = { getItem: () => savedLanguage, setItem: () => {}, removeItem: () => {} };
+
+// Arabic is a lazily loaded dictionary: main.jsx loads it before the
+// first render, the tests do the same.
+beforeAll(() => loadLanguage("ar"));
 
 const render = (props) => renderToStaticMarkup(
   <I18nProvider><MemoryRouter><Breadcrumbs {...props} /></MemoryRouter></I18nProvider>

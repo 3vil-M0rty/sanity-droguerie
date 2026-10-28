@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { LayoutDashboard, ClipboardList, Truck, Receipt, AlertTriangle, CalendarClock, ShoppingCart, Plus } from "lucide-react";
 import { useI18n } from "../../hooks/useI18n";
@@ -6,9 +6,12 @@ import { useCan } from "../../hooks/useCan";
 import { useAuth } from "../../hooks/useAuth";
 import { getDashboard } from "../../services/negoceService";
 import { useCompanyPicker, PageTop, CompanyFilter, formatMoney, errorText } from "../negoce/common";
-import Analytics from "./Analytics";
 import styles from "../purchasing/Purchasing.module.css";
 import s from "../sales/Sales.module.css";
+
+// The charts (recharts, ~100 KB gzipped) load after the key figures:
+// the tiles show at once and the analytics fill in below them.
+const Analytics = lazy(() => import("./Analytics"));
 
 /** Tableau de bord Sanity: today's and this month's sales, what's waiting (to prepare, deliver, invoice, collect), stock alerts. */
 export default function Dashboard() {
@@ -50,7 +53,7 @@ export default function Dashboard() {
           </div>
         </>
       )}
-      {money && companyId && <Analytics companyId={companyId} />}
+      {money && companyId && <Suspense fallback={null}><Analytics companyId={companyId} /></Suspense>}
     </div>
   );
 }

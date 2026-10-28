@@ -57,7 +57,7 @@
 /* ---------- KPI tiles ---------- */
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
   gap: 12px;
   margin-top: 6px;
 }

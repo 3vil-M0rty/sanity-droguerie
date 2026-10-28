@@ -14,7 +14,7 @@
 .path strong { color: var(--color-text-primary); }
 .sectionTitle { margin: 18px 0 10px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-tertiary); }
 
-.families { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.families { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 14px; }
 .family { position: relative; display: flex; flex-direction: column; gap: 10px; min-height: 128px; padding: 16px; text-align: left; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-secondary); color: var(--color-text-primary); cursor: pointer; overflow: hidden; transition: transform 0.12s ease, border-color 0.12s ease; }
 .family:hover { transform: translateY(-2px); border-color: var(--fam); }
 .family::after { content: ""; position: absolute; right: -30px; top: -30px; width: 120px; height: 120px; border-radius: 50%; background: var(--fam); opacity: 0.12; }
@@ -22,7 +22,19 @@
 .familyName { font-size: 1.02rem; font-weight: 700; }
 .familyMeta { font-size: 0.78rem; color: var(--color-text-secondary); }
 
-.articles { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 14px; }
+.articles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 215px), 1fr)); gap: 14px; }
+@media (max-width: 520px) {
+  /* Two article cards side by side on phones, like a shop app. */
+  .articles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .families { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .family { min-height: 112px; padding: 14px; }
+  .cardBody { padding: 10px 10px 6px; }
+  .figures { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .price { text-align: left; }
+}
+@media (hover: none) {
+  .family:hover { transform: none; }
+}
 .card { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-secondary); overflow: hidden; transition: border-color 0.12s ease, box-shadow 0.12s ease; }
 .card:hover { border-color: var(--fam, #6ea8fe); box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18); }
 .cardTop { position: relative; cursor: pointer; }
@@ -56,7 +68,13 @@
 
 /* modals */
 .overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, 0.6); }
-.modal { width: 100%; max-width: 640px; max-height: 88vh; overflow: auto; padding: 20px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-primary); }
+.modal { width: 100%; max-width: 640px; max-height: 88vh; max-height: 88dvh; overscroll-behavior: contain; overflow: auto; padding: 20px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-primary); }
+@media (max-width: 600px) {
+  .overlay { align-items: flex-end; padding: 0; }
+  .modal { max-width: none; max-height: 92dvh; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; }
+  .foot { flex-wrap: wrap; }
+  .foot > * { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+}
 .modalHead { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
 .modalHead h3 { margin: 0; font-size: 1.05rem; }
 .modalHead p { margin: 2px 0 0; font-size: 0.8rem; color: var(--color-text-secondary); }
@@ -82,7 +100,7 @@
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* ---- Stock par dépôt: warehouse cards */
-.whGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin: 4px 0 18px; }
+.whGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 12px; margin: 4px 0 18px; }
 .whCard { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-secondary); cursor: pointer; transition: border-color 0.12s ease, transform 0.12s ease; }
 .whCard:hover { transform: translateY(-1px); border-color: #4c8dff; }
 .whActive { border-color: #4c8dff; box-shadow: 0 0 0 1px #4c8dff inset; background: color-mix(in srgb, #4c8dff 8%, var(--color-bg-secondary)); }
@@ -98,7 +116,7 @@
 .whValue { margin-left: auto; font-weight: 700; color: var(--color-text-primary); }
 
 /* ---- Stock par dépôt: article stock cards */
-.stockCards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.stockCards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 14px; }
 .stockCard { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--color-border); border-left: 4px solid var(--fam); border-radius: 14px; background: var(--color-bg-secondary); cursor: pointer; transition: box-shadow 0.12s ease; }
 .stockCard:hover { box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18); }
 .stockTop { display: flex; gap: 12px; align-items: center; }

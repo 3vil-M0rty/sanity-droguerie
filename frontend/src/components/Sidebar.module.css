@@ -584,10 +584,11 @@
 
 
 /* ============================================================
-   MOBILE
+   PHONES & TABLETS — off-canvas drawer
+   Same breakpoint as DRAWER_QUERY in Sidebar.jsx.
    ============================================================ */
 
-@media (max-width: 700px) {
+@media (max-width: 1024px) {
 
   /* ----------------------------------------------------------
      Wrapper
@@ -598,11 +599,15 @@
   .sidebarWrapper.wrapperClosed {
     position: fixed;
 
+    /* Pinned to the visible screen edges, not 100vh: on iPhone 100vh
+       is taller than the screen, which hid the footer (logout, theme,
+       language) under Safari's toolbar. */
     top: 0;
+    bottom: 0;
     left: 0;
 
     width: 0 !important;
-    height: 100vh;
+    height: auto;
 
     background: transparent;
 
@@ -628,12 +633,18 @@
     top: 0;
     left: 0;
 
-    width: 280px;
-    max-width: 88vw;
+    bottom: 0;
 
-    height: 100vh;
+    width: 300px;
+    max-width: 86vw;
+
+    height: auto;
+    max-height: 100dvh;
 
     padding: 14px;
+    padding-top: max(14px, env(safe-area-inset-top));
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    padding-left: max(14px, env(safe-area-inset-left));
 
     background: var(--color-bg-primary);
 
@@ -647,7 +658,9 @@
     transform: translateX(-105%);
 
     transition:
-      transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+
+    will-change: transform;
 
     overflow: hidden;
   }
@@ -829,11 +842,12 @@
   .mobileMenuButton {
     position: fixed;
 
-    top: 14px;
-    left: 14px;
+    /* Sits in the left end of the sticky top bar (Layout.module.css) */
+    top: calc(10px + env(safe-area-inset-top));
+    left: calc(12px + env(safe-area-inset-left));
 
-    width: 42px;
-    height: 42px;
+    width: 40px;
+    height: 40px;
 
     display: flex;
     align-items: center;
@@ -853,8 +867,7 @@
 
     z-index: 9998;
 
-    box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.2);
+    -webkit-tap-highlight-color: transparent;
 
     transition:
       background 0.2s ease,
@@ -884,6 +897,9 @@
     inset: 0;
 
     background: rgba(0, 0, 0, 0.45);
+
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
 
     z-index: 9999;
 

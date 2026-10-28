@@ -29,13 +29,21 @@ import {
 import { useI18n } from "../hooks/useI18n";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
+import { useVisiblePolling } from "../hooks/useVisiblePolling";
 import styles from "./Sidebar.module.css";
 import LanguageSwitcher from "./useful/LanguageSwitcher";
 import { canAccessHR, canSelfService, canManageCompanySettings, isDepartmentManager, canAccessPurchasing, isPlatformAdmin, canAccessSales, canAccessLogistics, canUsePos, can, canAny, canManageInventory, canManageTeamPermissions, isAdmin } from "../utils/permissions";
 import { getOpenRequestCount } from "../services/purchasingService";
 
+// Phones and tablets get the sidebar as an off-canvas drawer (see the
+// matching @media in Sidebar.module.css): closed on load, closed again
+// after every navigation, so the page itself gets the whole screen.
+const DRAWER_QUERY = "(max-width: 1024px)";
+const isDrawerViewport = () =>
+  typeof window !== "undefined" && window.matchMedia(DRAWER_QUERY).matches;
+
 export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(() => !isDrawerViewport());
   const [expandedSection, setExpandedSection] = useState(null);
 
   // Previously the sidebar fetched its own separate copy of the
@@ -53,6 +61,25 @@ export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Rotating a tablet (or resizing a window) across the breakpoint:
+  // the drawer starts closed, the desktop sidebar starts open.
+  useEffect(() => {
+    const mq = window.matchMedia(DRAWER_QUERY);
+    const onChange = () => setIsOpen(!mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // Escape closes the drawer.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape" && isDrawerViewport()) setIsOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen]);
+
   // ============================================================
   // MENU
   // ============================================================
@@ -63,20 +90,15 @@ export default function Sidebar() {
   const [openRequestCount, setOpenRequestCount] = useState(0);
   const purchasingUser = canAccessPurchasing(user);
   useEffect(() => {
-    if (!purchasingUser) { setOpenRequestCount(0); return undefined; }
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const count = await getOpenRequestCount();
-        if (!cancelled) setOpenRequestCount(count);
-      } catch {
-        // non-critical: keep the last known count
-      }
-    };
-    load();
-    const interval = setInterval(load, 60000);
-    return () => { cancelled = true; clearInterval(interval); };
+    if (!purchasingUser) setOpenRequestCount(0);
   }, [purchasingUser]);
+  useVisiblePolling(async () => {
+    try {
+      setOpenRequestCount(await getOpenRequestCount());
+    } catch {
+      // non-critical: keep the last known count
+    }
+  }, 60000, purchasingUser);
 
   const menuItems = [
     {
@@ -726,7 +748,7 @@ export default function Sidebar() {
                 className={styles.footerBtn}
                 title={t("sidebar.profile")}
                 onClick={() => {
-                  if (window.innerWidth <= 700) {
+                  if (isDrawerViewport()) {
                     setIsOpen(false);
                   }
                 }}
@@ -754,7 +776,7 @@ export default function Sidebar() {
                       className={styles.navItem}
                       onClick={() => {
                         if (
-                          window.innerWidth <= 700
+                          isDrawerViewport()
                         ) {
                           setIsOpen(false);
                         }
@@ -832,8 +854,7 @@ export default function Sidebar() {
                                 }`}
                                 onClick={() => {
                                   if (
-                                    window.innerWidth <=
-                                    700
+                                    isDrawerViewport()
                                   ) {
                                     setIsOpen(false);
                                   }

@@ -332,6 +332,13 @@ function getActiveProvider() {
   return providers[provider] ? provider : null;
 }
 
+// A provider that answered 429 (daily quota used up, e.g. MyMemory's free
+// tier) is left alone for an hour instead of being called — and failing —
+// on every save. One log line when it happens, none while it rests.
+const QUOTA_PAUSE_MS = 60 * 60 * 1000;
+const pausedUntil = new Map();
+const isPaused = (provider) => (pausedUntil.get(provider) || 0) > Date.now();
+
 // ------------------------------------------------------------
 // Local, dependency-free language heuristic. Used (a) as the ONLY
 // detector when no provider is configured / provider detection
@@ -448,6 +455,9 @@ async function translateText({ text, target, source }) {
   if (source && source === target) return trimmed;
 
   const provider = getActiveProvider();
+  // "off": auto-translation deliberately disabled (demo seed, bulk imports) — no warning.
+  if (!provider && (process.env.TRANSLATION_PROVIDER || "").toLowerCase() === "off") return null;
+  if (provider && isPaused(provider)) return null;
   if (!provider) {
     console.warn(
       `[translationService] No translation provider configured ` +
@@ -462,6 +472,11 @@ async function translateText({ text, target, source }) {
     const result = await providers[provider].translate({ text: trimmed, target, source });
     return typeof result === "string" ? result : null;
   } catch (error) {
+    if (error.status === 429) {
+      pausedUntil.set(provider, Date.now() + QUOTA_PAUSE_MS);
+      console.error(`[translationService] "${provider}" quota reached (429): auto-translation paused for 1 hour. Names stay in their original language; translations can be added from the app.`);
+      return null;
+    }
     console.error(
       `[translationService] "${provider}" translation failed (${source || "auto"} -> ${target}): ${error.message}`
     );

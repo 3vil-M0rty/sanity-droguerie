@@ -142,7 +142,6 @@ export default function LoginPage() {
           mail="belmoudden.hicham@gmail.com"
           className={styles.shinyText}
           speed={3}
-          delay={0}
           color="#b5b5b5"
           shineColor="#ffffff"
           spread={120}
