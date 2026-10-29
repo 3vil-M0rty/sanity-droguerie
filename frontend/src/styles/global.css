@@ -162,6 +162,11 @@ body {
      that were previously inert.
      ------------------------------------------------------ */
   --color-primary: var(--color-info);
+
+  /* App background: near-black with faint grey line drawings
+     (Layout.module.css, WhatsApp-wallpaper style). */
+  --app-bg: #0c0d0e;
+  --doodle-color: rgba(255, 255, 255, 0.075);
   --color-primary-dark: #2f6fd1;
   --color-primary-light: var(--color-info-light);
   --color-error: var(--color-danger);
@@ -214,6 +219,9 @@ body {
   --color-grey-900: #111827;
 
   --color-primary-dark: #1d4ed8;
+
+  --app-bg: #eceef1;
+  --doodle-color: rgba(15, 23, 42, 0.075);
 
   --overlay-rgb: 15, 23, 42;
   --surface-rgb: 255, 255, 255;

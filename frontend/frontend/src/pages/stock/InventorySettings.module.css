@@ -1,0 +1,259 @@
+.toolbar {
+    display: flex;
+    margin-bottom: 20px;
+    max-width: 320px;
+}
+
+.errorMessage {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255, 80, 80, 0.25);
+    border-radius: 10px;
+    background: rgba(255, 80, 80, 0.06);
+    color: var(--tone-ff8585);
+    font-size: 0.82rem;
+}
+
+.formCard {
+    padding: 18px;
+    margin-bottom: 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg-primary);
+}
+
+.formCard h3 {
+    margin: 0 0 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.formGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.formField {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.formField label {
+    color: var(--color-text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.textInput {
+    height: 40px;
+    padding: 0 12px;
+    color: var(--color-text-primary);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--font-base);
+}
+
+.formActions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+/* Defensive: force Update/Cancel to the same, correct size even if
+   something elsewhere in the cascade (a stale cached bundle, a
+   future global.css change) ends up overriding .btnPrimary's own
+   sizing — this scoped rule always wins for this form's buttons. */
+.formActions button {
+    min-height: 40px;
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    width: auto;
+}
+
+.categoryGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+    align-items: start;
+    gap: 14px;
+}
+
+/* A top-level category with its sub-categories under it */
+.categoryGroup {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.categoryGroup > .categoryCard {
+    border: none;
+    border-radius: 0;
+}
+
+.subList {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-border);
+}
+
+.subRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-border-light, var(--color-border));
+}
+
+.subRow:last-child {
+    border-bottom: none;
+}
+
+.subArrow {
+    flex-shrink: 0;
+    color: var(--color-text-tertiary);
+}
+
+.subName {
+    color: var(--color-text-primary);
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.categoryCard {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg-primary);
+}
+
+.categoryIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    background: var(--color-bg-secondary);
+    border-radius: 10px;
+}
+
+.categoryInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.categoryName {
+    color: var(--color-text-primary);
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+
+.categoryDescription {
+    color: var(--color-text-tertiary);
+    font-size: 0.72rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.categoryActions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+    .formGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.fieldHint { font-size: 0.72rem; line-height: 1.4; color: var(--color-text-tertiary); }
+.inlineSwitch { display: inline-flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--color-text-secondary); cursor: pointer; }
+
+/* ---------- collapsible tree + drag & drop ---------- */
+.treeToolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.treeToolbarActions {
+    display: flex;
+    gap: 6px;
+}
+
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.toggle:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+}
+
+.togglePlaceholder {
+    width: 24px;
+    flex-shrink: 0;
+}
+
+.grip {
+    flex-shrink: 0;
+    color: var(--color-text-tertiary);
+    cursor: grab;
+    opacity: 0.6;
+}
+
+.categoryCard:hover .grip,
+.subRow:hover .grip {
+    opacity: 1;
+}
+
+.categoryCard[draggable="true"],
+.subRow[draggable="true"] {
+    cursor: grab;
+}
+
+.dropActive {
+    outline: 2px dashed var(--color-info);
+    outline-offset: -2px;
+    background: var(--color-info-light);
+}
+
+.rootDrop {
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+    text-align: center;
+    color: var(--color-text-secondary);
+    border: 1px dashed var(--color-border);
+    border-radius: 10px;
+}

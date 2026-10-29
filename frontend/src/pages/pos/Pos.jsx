@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShoppingCart, ScanBarcode, Trash2, LogIn, LogOut, Banknote, CreditCard, Printer, UserRound, PackagePlus } from "lucide-react";
+import { ShoppingCart, ScanBarcode, Trash2, LogIn, LogOut, Banknote, CreditCard, Printer, UserRound, PackagePlus, Landmark, ArrowLeftRight, BookOpen } from "lucide-react";
 import { useI18n } from "../../hooks/useI18n";
 import { useCan } from "../../hooks/useCan";
 import CustomSelect from "../../components/useful/CustomSelect";
@@ -13,6 +13,7 @@ import p from "./Pos.module.css";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const METHODS = ["especes", "carte", "cheque", "virement", "credit"];
+const METHOD_ICONS = { especes: Banknote, carte: CreditCard, cheque: Landmark, virement: ArrowLeftRight, credit: BookOpen };
 
 /**
  * Caisse comptoir: open a session (fond de caisse), scan or search
@@ -183,8 +184,10 @@ export default function Pos() {
       <div className={p.layout}>
         <div>
           <form className={p.scan} onSubmit={onScan}>
-            <ScanBarcode size={22} />
-            <input ref={scanRef} autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("ng.pos.scanPlaceholder")} />
+            <span className={p.scanField}>
+              <ScanBarcode size={20} className={p.scanIcon} aria-hidden="true" />
+              <input ref={scanRef} autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("ng.pos.scanPlaceholder")} />
+            </span>
             <button type="button" className="btnEdit" onClick={() => setDivers(divers ? null : { description: "", price: "", quantity: "1" })}><PackagePlus size={15} /> {t("ng.pos.divers")}</button>
           </form>
           {divers && (
@@ -233,7 +236,8 @@ export default function Pos() {
           {customer && <label className={styles.checkboxRow}><input type="checkbox" checked={wantInvoice} onChange={(e) => setWantInvoice(e.target.checked)} /> {t("ng.pos.invoice")}</label>}
           <div className={p.methods}>
             {METHODS.filter((m) => m !== "credit" || customer).map((m) => (
-              <label key={m} className={p.method}>{m === "carte" ? <CreditCard size={12} /> : null} {t(`ng.pos.methods.${m}`)}
+              <label key={m} className={p.method}>
+                <span className={p.methodLabel}>{(() => { const Icon = METHOD_ICONS[m] || Banknote; return <Icon size={13} aria-hidden="true" />; })()}{t(`ng.pos.methods.${m}`)}</span>
                 <span className={p.methodInput}>
                   <input type="number" min="0" step="0.01" value={pay[m]} onChange={(e) => setPay({ ...pay, [m]: e.target.value })} />
                   {paid < total && <button type="button" title={t("ng.pos.rest")} onClick={() => setPay({ ...pay, [m]: String(r2((Number(pay[m]) || 0) + total - paid)) })}>=</button>}

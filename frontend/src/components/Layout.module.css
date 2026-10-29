@@ -4,7 +4,30 @@
   /* Mobile browsers: 100vh includes the area under the address bar,
      which hid the bottom of every page. dvh is the visible height. */
   height: 100dvh;
-  background: var(--color-bg-secondary);
+  position: relative;
+  isolation: isolate;
+  background: var(--app-bg);
+}
+
+/* Doodle wallpaper: one small SVG tile (cached like any asset) used as
+   a mask, so the drawings take their colour from the theme. It stays
+   still while the page scrolls over it and never repaints. */
+.container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--doodle-color);
+  -webkit-mask: url("../assets/doodles.svg") 0 0 / 420px 420px repeat;
+  mask: url("../assets/doodles.svg") 0 0 / 420px 420px repeat;
+}
+
+@media (max-width: 700px) {
+  .container::before {
+    -webkit-mask-size: 340px 340px;
+    mask-size: 340px 340px;
+  }
 }
 
 .main {

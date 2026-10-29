@@ -1,0 +1,95 @@
+.container {
+  display: flex;
+  height: 100vh;
+  /* Mobile browsers: 100vh includes the area under the address bar,
+     which hid the bottom of every page. dvh is the visible height. */
+  height: 100dvh;
+  position: relative;
+  isolation: isolate;
+  background: var(--app-bg);
+}
+
+/* Doodle wallpaper: one small SVG tile (cached like any asset) used as
+   a mask, so the drawings take their colour from the theme. It stays
+   still while the page scrolls over it and never repaints. */
+.container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--doodle-color);
+  -webkit-mask: url("../assets/doodles.svg") 0 0 / 420px 420px repeat;
+  mask: url("../assets/doodles.svg") 0 0 / 420px 420px repeat;
+}
+
+@media (max-width: 700px) {
+  .container::before {
+    -webkit-mask-size: 340px 340px;
+    mask-size: 340px 340px;
+  }
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--spacing-2xl);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+/* Small laptops / large tablets in landscape: tighter gutters. */
+@media (max-width: 1280px) {
+  .main {
+    padding: var(--spacing-xl);
+  }
+}
+
+/* Phones & tablets: the sidebar is a drawer (Sidebar.module.css) and
+   the top bar becomes a sticky app bar holding its menu button on the
+   left and the notification bell on the right. */
+@media (max-width: 1024px) {
+  .main {
+    padding: 0 var(--spacing-md) var(--spacing-lg);
+    padding-left: max(var(--spacing-md), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-md), env(safe-area-inset-right));
+    padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    align-items: center;
+    min-height: calc(60px + env(safe-area-inset-top));
+    margin: 0 calc(-1 * var(--spacing-md)) var(--spacing-sm);
+    padding: env(safe-area-inset-top) var(--spacing-md) 0 64px;
+    background: rgba(var(--surface-rgb), 0.72);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+    backdrop-filter: saturate(160%) blur(12px);
+    border-bottom: 1px solid var(--color-border-light);
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding-left: max(var(--spacing-sm), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-sm), env(safe-area-inset-right));
+  }
+
+  .topbar {
+    margin-left: calc(-1 * var(--spacing-sm));
+    margin-right: calc(-1 * var(--spacing-sm));
+    padding-right: var(--spacing-sm);
+  }
+}

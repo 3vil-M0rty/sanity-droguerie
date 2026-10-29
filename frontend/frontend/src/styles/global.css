@@ -1,0 +1,1455 @@
+/* ========================================
+   GLOBAL CSS RESET — DARK (default) + LIGHT THEMES
+   The theme is chosen per user (context/ThemeContext.jsx): their own
+   choice, else the company's "Thème sombre" setting. It is applied as
+   <html data-theme="dark|light">. Every colour below is a token; the
+   light values are under :root[data-theme="light"].
+   ======================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  /* Nothing may make the page wider than the phone: a too-wide element
+     let iOS zoom the whole app out (and kept it zoomed). */
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Phones in landscape: don't let iOS inflate font sizes on its own. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Dark theme (default) */
+:root {
+  color-scheme: dark;
+  --color-scheme: dark;
+  /* Backgrounds */
+  --color-bg-primary: #1a1a1a;
+  --color-bg-secondary: #242424;
+  --color-bg-tertiary: #2f2f2f;
+  --color-bg-hover: #3a3a3a;
+  --color-bg-deep: #111111;
+
+  /* Translucent overlays (hover, subtle borders): white on dark */
+  --overlay-rgb: 255, 255, 255;
+  /* Translucent panels (modals, menus): near-black on dark */
+  --surface-rgb: 15, 15, 15;
+
+  /* "Inverted" buttons / active tabs: white on dark, ink on light */
+  --color-inverse-bg: #ffffff;
+  --color-inverse-fg: #000000;
+  --color-inverse-hover: #e8e8e8;
+
+  /* Status text colours (pastel on dark, deeper on light) */
+  --tone-e8b93f: #e8b93f;
+  --tone-f5b544: #f5b544;
+  --tone-facc15: #facc15;
+  --tone-4cc38a: #4cc38a;
+  --tone-4ade80: #4ade80;
+  --tone-6ea8fe: #6ea8fe;
+  --tone-93c5fd: #93c5fd;
+  --tone-4c8dff: #4c8dff;
+  --tone-f87171: #f87171;
+  --tone-ff8585: #ff8585;
+  --tone-ff6b6b: #ff6b6b;
+  --tone-fca5a5: #fca5a5;
+  --tone-ff9b9b: #ff9b9b;
+  
+  /* Text */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #cccccc;
+  --color-text-tertiary: #999999;
+  --color-text-muted: #777777;
+  
+  /* Borders & Shadows */
+  --color-border: #333333;
+  --color-border-light: #2a2a2a;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+  --color-shadow-lg: rgba(0, 0, 0, 0.5);
+  --color-shadow-xl: rgba(0, 0, 0, 0.6);
+
+  /* Status Colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  
+  /* Status Light Backgrounds */
+  --color-success-light: #1a3a2a;
+  --color-warning-light: #3a2a1a;
+  --color-danger-light: #3a1a1a;
+  --color-info-light: #1a2a3a;
+
+  /* Greyscale */
+  --color-grey-50: #0f0f0f;
+  --color-grey-100: #1a1a1a;
+  --color-grey-200: #242424;
+  --color-grey-300: #333333;
+  --color-grey-400: #4a4a4a;
+  --color-grey-500: #666666;
+  --color-grey-600: #808080;
+  --color-grey-700: #999999;
+  --color-grey-800: #b3b3b3;
+  --color-grey-900: #e6e6e6;
+
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  --spacing-3xl: 4rem;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Font Sizes */
+  --font-xs: 0.75rem;
+  --font-sm: 0.875rem;
+  --font-base: 1rem;
+  --font-lg: 1.125rem;
+  --font-xl: 1.25rem;
+  --font-2xl: 1.5rem;
+  --font-3xl: 1.875rem;
+  --font-4xl: 2.25rem;
+
+  /* Font Weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Line Heights */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* ------------------------------------------------------
+     Brand / semantic aliases
+     ------------------------------------------------------
+     A handful of components (CompanyForm, CompanyCard,
+     Profile, LoginPage) reference --color-primary(-dark/-light)
+     and --color-error, but those tokens were never defined
+     here — meaning every rule using them was silently
+     invalid CSS and had NO visual effect. These aliases wire
+     them up to the closest existing token so those components
+     render as originally intended. Nothing about this changes
+     any class that was already working; it only fixes rules
+     that were previously inert.
+     ------------------------------------------------------ */
+  --color-primary: var(--color-info);
+
+  /* App background: near-black with faint grey line drawings
+     (Layout.module.css, WhatsApp-wallpaper style). */
+  --app-bg: #0c0d0e;
+  --doodle-color: rgba(255, 255, 255, 0.075);
+  --color-primary-dark: #2f6fd1;
+  --color-primary-light: var(--color-info-light);
+  --color-error: var(--color-danger);
+}
+
+
+/* ========================================
+   LIGHT THEME
+   ======================================== */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-scheme: light;
+
+  --color-bg-primary: #f4f5f7;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #eef0f3;
+  --color-bg-hover: #e5e8ed;
+  --color-bg-deep: #e9ecf0;
+
+  --color-text-primary: #111827;
+  --color-text-secondary: #374151;
+  --color-text-tertiary: #5b6472;
+  --color-text-muted: #7b8390;
+
+  --color-border: #dde1e7;
+  --color-border-light: #e9ecf0;
+  --color-shadow: rgba(15, 23, 42, 0.08);
+  --color-shadow-lg: rgba(15, 23, 42, 0.12);
+  --color-shadow-xl: rgba(15, 23, 42, 0.18);
+
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+
+  --color-success-light: #e6f6ef;
+  --color-warning-light: #fdf3e2;
+  --color-danger-light: #fdecec;
+  --color-info-light: #e8f0fe;
+
+  --color-grey-50: #fafafa;
+  --color-grey-100: #f4f5f7;
+  --color-grey-200: #eef0f3;
+  --color-grey-300: #dde1e7;
+  --color-grey-400: #c4cad3;
+  --color-grey-500: #9aa1ab;
+  --color-grey-600: #7b8390;
+  --color-grey-700: #5b6472;
+  --color-grey-800: #374151;
+  --color-grey-900: #111827;
+
+  --color-primary-dark: #1d4ed8;
+
+  --app-bg: #eceef1;
+  --doodle-color: rgba(15, 23, 42, 0.075);
+
+  --overlay-rgb: 15, 23, 42;
+  --surface-rgb: 255, 255, 255;
+
+  --color-inverse-bg: #111827;
+  --color-inverse-fg: #ffffff;
+  --color-inverse-hover: #1f2937;
+
+  --tone-e8b93f: #a16207;
+  --tone-f5b544: #a16207;
+  --tone-facc15: #a16207;
+  --tone-4cc38a: #15803d;
+  --tone-4ade80: #15803d;
+  --tone-6ea8fe: #1d4ed8;
+  --tone-93c5fd: #1d4ed8;
+  --tone-4c8dff: #1d4ed8;
+  --tone-f87171: #dc2626;
+  --tone-ff8585: #dc2626;
+  --tone-ff6b6b: #dc2626;
+  --tone-fca5a5: #b91c1c;
+  --tone-ff9b9b: #dc2626;
+}
+
+:root[data-theme="light"] ::selection {
+  background: #bfdbfe;
+  color: #111827;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-primary);
+  font-weight: var(--font-bold);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-md);
+}
+::selection {
+  background: rgb(28, 85, 138);
+  color: #ffffff;
+}
+h1 { font-size: var(--font-4xl); }
+h2 { font-size: var(--font-3xl); }
+h3 { font-size: var(--font-2xl); }
+h4 { font-size: var(--font-xl); }
+h5 { font-size: var(--font-lg); }
+h6 { font-size: var(--font-base); }
+
+p {
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+  margin-bottom: var(--spacing-md);
+}
+
+a {
+  color: var(--color-info);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--color-info);
+  opacity: 0.8;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  /* Not `all`: animating layout properties on every button made
+     long lists janky on phones. */
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Touch: no grey flash on tap, and no 300 ms double-tap-zoom wait. */
+a, button, [role="button"], input, select, textarea, label, summary {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+img, svg, video, canvas {
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+/* A fieldset defaults to min-width: min-content, which let wide
+   forms push past the screen edge on phones. */
+fieldset {
+  min-width: 0;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 2px var(--color-grey-300);
+}
+
+/* Keyboard focus stays visible on everything else. */
+:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: none;
+}
+
+/* iOS Safari zooms the whole page into any field under 16px and
+   never zooms back out. On touch screens fields are 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+
+
+input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* ---------- File inputs ---------- */
+/* Browsers render <input type="file"> as a native "choose file"
+   button plus a filename label, drawn in the OS/browser's own
+   default look (light grey box, dark text) — that's the "looks bad"
+   native control you get with zero styling, and it clashes badly
+   with a dark theme. The button portion IS themeable via the
+   standard ::file-selector-button pseudo-element (supported in all
+   current browsers); the filename label isn't a separate DOM node
+   so it just inherits color/font from the input itself. This is one
+   rule for every file input in the app — no per-page markup changes
+   needed. */
+input[type="file"] {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  height: 28px;
+  padding: 0 0.9rem;
+  color: var(--color-inverse-fg);
+  background: var(--color-inverse-bg);
+  border: none;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 28px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--color-inverse-hover);
+}
+
+input[type="file"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+input[type="file"]:disabled::file-selector-button {
+  cursor: not-allowed;
+}
+
+/* Scrollbar
+   Standard properties first: Firefox only understands these, and
+   current Chromium browsers use them (ignoring ::-webkit-scrollbar)
+   wherever they're set — without them, dropdown menus showed the
+   bright native Windows scrollbar with arrows. The webkit rules below
+   remain as a fallback for older browsers. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3d3d3d transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
+/* Container */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-md);
+}
+
+/* Utilities */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.opacity-50 {
+  opacity: 0.5;
+}
+
+.opacity-75 {
+  opacity: 0.75;
+}
+
+/* Status Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: var(--font-semibold);
+}
+
+.badge-success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.badge-warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.badge-danger {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.badge-info {
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+
+/* ============================================================
+   RESOURCE PAGE COMPONENT LIBRARY
+   ============================================================
+   Shared building blocks for "manage a resource" screens
+   (Company, Users, Employees, and any future admin screen —
+   Departments, Roles, etc.). These classes used to be
+   copy-pasted, almost byte-for-byte, into every page's
+   .module.css file. They now live here once, as plain global
+   classes (this file is imported directly in main.jsx, not as a
+   CSS Module), and pages apply them directly in JSX alongside
+   their own module classes, e.g.:
+
+     className={`resourceCard ${styles.userCard}`}
+
+   No CSS Modules `composes` is used anywhere in this project —
+   sharing happens through these plain global class names instead.
+
+   Naming: everything here is prefixed to avoid clashing with
+   any other global class in the app.
+   ============================================================ */
+
+/* ---------- Page shell & header ---------- */
+
+.pageShell {
+  width: 100%;
+  padding: 2rem;
+  color: var(--color-text-primary);
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.pageHeaderActions {
+  display: flex;
+  gap: 5px;
+}
+
+.pageTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.pageTitleRow svg {
+  color: var(--color-text-tertiary);
+}
+
+.pageTitleRow h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.pageSubtitle {
+  margin: 0.5rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+/* ---------- Buttons ---------- */
+
+.btnPrimary,
+.btnEdit,
+.btnCancel,
+.btnDelete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.btnPrimary {
+  color: var(--color-inverse-fg);
+  background: var(--color-inverse-bg);
+  border: 1px solid var(--color-inverse-bg);
+}
+
+.btnPrimary:hover {
+  background: var(--color-inverse-hover);
+  transform: translateY(-1px);
+}
+
+.btnEdit {
+  color: var(--color-text-primary);
+  background: rgba(var(--overlay-rgb),  0.05);
+  border: 1px solid rgba(var(--overlay-rgb),  0.1);
+}
+
+.btnEdit:hover {
+  background: rgba(var(--overlay-rgb),  0.08);
+}
+
+.btnCancel {
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: 1px solid rgba(var(--overlay-rgb),  0.1);
+}
+
+.btnCancel:hover {
+  color: var(--color-text-primary);
+  background: rgba(var(--overlay-rgb),  0.05);
+}
+
+.btnDelete {
+  color: var(--tone-ff8585);
+  background: rgba(255, 80, 80, 0.06);
+  border: 1px solid rgba(255, 80, 80, 0.2);
+}
+
+.btnDelete:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 60, 60, 0.15);
+  border-color: rgba(255, 70, 70, 0.45);
+}
+
+.btnDelete:active {
+  transform: translateY(1px);
+}
+
+.btnBack {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.btnBack:hover {
+  color: var(--color-text-primary);
+}
+
+
+
+/* ---------- Empty state ---------- */
+
+.emptyStateBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  padding: 3rem;
+  text-align: center;
+  border: 1px dashed rgba(var(--overlay-rgb),  0.12);
+  border-radius: 14px;
+  background: rgba(var(--overlay-rgb),  0.015);
+}
+
+.emptyStateIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 1.25rem;
+  color: var(--color-text-tertiary);
+  background: rgba(var(--overlay-rgb),  0.04);
+  border: 1px solid rgba(var(--overlay-rgb),  0.08);
+  border-radius: 50%;
+}
+
+.emptyStateBlock h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.emptyStateBlock p {
+  max-width: 420px;
+  margin: 0 0 1.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* ---------- Detail card (company profile / user profile) ---------- */
+
+.detailCard {
+  overflow: hidden;
+  border: 1px solid rgba(var(--overlay-rgb),  0.08);
+  border-radius: 14px;
+  background: rgba(var(--overlay-rgb),  0.02);
+}
+
+.detailSection {
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(var(--overlay-rgb),  0.07);
+}
+
+.detailSection h2 {
+  margin: 0 0 1.25rem;
+  color: var(--color-text-tertiary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.detailInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.detailInfo span {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.detailInfo strong {
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* ---------- Form wrapper ---------- */
+
+.formShell {
+  max-width: 100%;
+}
+
+/* ---------- Loading ---------- */
+
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+/* ---------- Danger zone ---------- */
+
+.dangerZoneBlock {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(var(--overlay-rgb),  0.08);
+}
+
+/* ---------- Toolbar spacing (search bar row above a grid) ---------- */
+
+.toolbarBlock {
+  margin-bottom: 20px;
+}
+
+/* ---------- Auto-fill card grid (Users, Employees, ...) ---------- */
+
+.autoFillGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  gap: 1rem;
+}
+
+/* ---------- Clickable resource card (Users, Employees, ...) ----------
+   Page-specific inner layout (grid-template-columns, flex, etc.) is
+   added locally on top of this — applied together in JSX, e.g.
+   className={`resourceCard ${styles.userCard}`}. */
+
+.resourceCard {
+  position: relative;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.resourceCard:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-text-tertiary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- Avatar circles ---------- */
+
+.avatarCircle,
+.avatarCircleLg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  color: var(--color-text-tertiary);
+  background: rgba(var(--overlay-rgb),  0.05);
+  border: 1px solid rgba(var(--overlay-rgb),  0.08);
+  border-radius: 50%;
+}
+
+.avatarCircle {
+  width: 48px;
+  height: 48px;
+}
+
+.avatarCircleLg {
+  width: 70px;
+  height: 70px;
+}
+
+/* ---------- Card overlay actions (edit/delete icon buttons that
+   fade in on hover, pinned to the top-right corner of a card —
+   used by UserCard, EmployeeCard, CompanyCard, ...) ---------- */
+
+.cardActionsOverlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+
+.cardActionIconBtn,
+.cardActionIconBtnDanger {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.resourceCard:hover .cardActionIconBtn,
+.cardActionIconBtn:focus-visible,
+.resourceCard:hover .cardActionIconBtnDanger,
+.cardActionIconBtnDanger:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cardActionIconBtn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-text-tertiary);
+}
+
+.cardActionIconBtn:active,
+.cardActionIconBtnDanger:active {
+  transform: scale(0.95);
+}
+
+.cardActionIconBtnDanger {
+  color: var(--tone-ff6b6b);
+  background: rgba(255, 80, 80, 0.06);
+  border-color: rgba(255, 80, 80, 0.2);
+}
+
+.cardActionIconBtnDanger:hover {
+  color: var(--tone-ff8585);
+  background: rgba(255, 80, 80, 0.12);
+  border-color: rgba(255, 80, 80, 0.35);
+}
+
+/* ---------- Card footer actions (a row of small text+icon buttons
+   under a card's content, separated by a top border — used by
+   EmployeeCard's view/edit/delete row) ---------- */
+
+.cardFooterActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.cardFooterActionBtn,
+.cardFooterActionBtnDanger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 9px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.cardFooterActionBtn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border);
+}
+
+.cardFooterActionBtnDanger {
+  color: var(--tone-ff8585);
+}
+
+.cardFooterActionBtnDanger:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 60, 60, 0.15);
+  border-color: rgba(255, 70, 70, 0.45);
+}
+
+/* ---------- Pill tag (role / department / status / meta chip) ---------- */
+
+.pillTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+/* ---------- Filter groups (a labeled control in a page toolbar —
+   company selector, status dropdown, date range, ...). Reused by
+   DateRangeFilter and any page's own toolbar. ---------- */
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.filterGroup label {
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.dateInput {
+  height: 40px;
+  padding: 0 12px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-base);
+  /* Native date-picker inputs render their own icon/affordance —
+     force the color-scheme so it isn't a jarring light-on-light
+     browser default inside this app's dark UI. */
+  color-scheme: var(--color-scheme);
+}
+
+/* ---------- Responsive ---------- */
+
+/* Touch screens have no hover: the edit/delete icons that fade in on
+   hover are always shown, and cards don't stay "lifted" after a tap. */
+@media (hover: none) {
+  .cardActionIconBtn,
+  .cardActionIconBtnDanger {
+    opacity: 1;
+    transform: none;
+  }
+
+  .resourceCard:hover,
+  .btnPrimary:hover {
+    transform: none;
+  }
+
+  .resourceCard:active {
+    transform: scale(0.99);
+  }
+}
+
+@media (max-width: 1024px) {
+  /* The layout already pads the page (Layout.module.css). */
+  .pageShell {
+    padding: var(--spacing-sm) 0 var(--spacing-md);
+  }
+
+  .pageHeader {
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .pageHeaderActions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .autoFillGrid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  }
+
+  .emptyStateBlock {
+    min-height: 280px;
+    padding: 2rem 1.25rem;
+  }
+
+  .loadingState {
+    min-height: 240px;
+  }
+}
+
+/* Plain <table>s: a wide one scrolls sideways inside its own box
+   instead of pushing the whole page wider than the screen. */
+@media (max-width: 1024px) {
+  main :has(> table) {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 700px) {
+  h1 { font-size: var(--font-3xl); }
+  h2 { font-size: var(--font-2xl); }
+  h3 { font-size: var(--font-xl); }
+
+  .pageHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pageHeaderActions > * {
+    flex: 1 1 auto;
+  }
+
+  .pageTitleRow h1 {
+    font-size: 1.3rem;
+  }
+
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .detailSection {
+    padding: 1.1rem;
+  }
+
+  .autoFillGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cardActionIconBtn,
+  .cardActionIconBtnDanger {
+    opacity: 1;
+    transform: none;
+    width: 36px;
+    height: 36px;
+  }
+
+  .tableActionBtn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .dangerZoneBlock {
+    padding: 1.1rem;
+  }
+
+  .dangerZoneBlock > * {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .btnPrimary {
+    width: 100%;
+  }
+
+  .btnPrimary,
+  .btnEdit,
+  .btnCancel,
+  .btnDelete {
+    min-height: 44px;
+  }
+}
+
+/* ============================================================
+   HR RECORD TABLE
+   ============================================================
+   Shared list layout for HR "workflow" resources (Salaries,
+   Absences, Advances, and any future one) — a header row of
+   column labels followed by one row per record. Built as plain
+   global classes (not composes — see the note at the top of this
+   file) so Salaries.module.css / Absences.module.css /
+   Advances.module.css can all apply them directly in JSX instead
+   of re-styling their own tables from scratch.
+   ============================================================ */
+
+.dataTable {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-primary);
+}
+
+.dataTableHead,
+.dataTableRow {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.dataTableHead {
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.dataTableRow {
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.84rem;
+  transition: background 0.15s ease;
+}
+
+.dataTableRow:last-child {
+  border-bottom: 0;
+}
+
+.dataTableRow:hover {
+  background: var(--color-bg-hover);
+}
+
+.dataTableCellMuted {
+  color: var(--color-text-tertiary);
+  font-size: 0.78rem;
+}
+
+.dataTableActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* ---------- Status / workflow pills ---------- */
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.statusPillPending {
+  color: var(--tone-e8b93f);
+  background: rgba(232, 185, 63, 0.1);
+  border-color: rgba(232, 185, 63, 0.3);
+}
+
+.statusPillAccepted {
+  color: var(--tone-4cc38a);
+  background: rgba(76, 195, 138, 0.1);
+  border-color: rgba(76, 195, 138, 0.3);
+}
+
+.statusPillRejected {
+  color: var(--tone-ff6b6b);
+  background: rgba(255, 80, 80, 0.1);
+  border-color: rgba(255, 80, 80, 0.25);
+}
+
+.statusPillManagerApproved {
+  color: var(--tone-6ea8fe);
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.statusPillNeutral {
+  color: var(--color-text-tertiary);
+}
+
+/* ---------- Small icon-only action buttons inside a table row
+   (accept / reject / edit / delete) ---------- */
+
+.tableActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.tableActionBtn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-text-tertiary);
+}
+
+.tableActionBtnAccept:hover {
+  color: var(--tone-4cc38a);
+  background: rgba(76, 195, 138, 0.12);
+  border-color: rgba(76, 195, 138, 0.35);
+}
+
+.tableActionBtnReject:hover,
+.tableActionBtnDanger:hover {
+  color: var(--tone-ff8585);
+  background: rgba(255, 60, 60, 0.15);
+  border-color: rgba(255, 70, 70, 0.45);
+}
+
+/* Phones: each row becomes a card. The header is hidden and its
+   labels are copied onto the cells as data-label
+   (utils/responsiveTables.js), shown as "Label ........ value". */
+@media (max-width: 760px) {
+  .dataTable {
+    border-radius: 14px;
+  }
+
+  .dataTableHead {
+    display: none;
+  }
+
+  .dataTableRow {
+    grid-template-columns: 1fr !important;
+    gap: 2px;
+    padding: 14px 14px 12px;
+  }
+
+  .dataTableRow:hover {
+    background: transparent;
+  }
+
+  .dataTableRow:active {
+    background: var(--color-bg-hover);
+  }
+
+  .dataTableRow > [data-label] {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 24px;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .dataTableRow > [data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    max-width: 50%;
+    color: var(--color-text-tertiary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  /* The first column is the row's title: full width, no label. */
+  .dataTableRow > [data-label]:first-child {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.92rem;
+    text-align: left;
+  }
+
+  .dataTableRow > [data-label]:first-child::before,
+  .dataTableRow > [data-label=""]::before {
+    content: none;
+  }
+
+  /* Empty / checkbox-only header cells (row actions, selection). */
+  .dataTableRow > [data-label=""] {
+    justify-content: flex-end;
+  }
+
+  .dataTableRow > .dataTableActions {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--color-border);
+  }
+}
+
+
+/* ============================================================
+   SWITCH TOGGLE — a native checkbox styled as an on/off switch
+   (keeps keyboard + screen-reader behavior for free).
+   The global `input` rule above gives every input padding and a
+   border; left in place, that made the switch taller/wider than
+   its knob expects and pinned the knob to the top corner. Every
+   box property is reset explicitly here, and the knob is centered
+   with top: 50% + translateY instead of a fixed offset.
+   ============================================================ */
+.switchToggle {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 42px;
+  min-width: 42px;
+  height: 24px;
+  min-height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-secondary, var(--color-bg-secondary));
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.switchToggle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #cfcfcf;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transform: translateY(-50%);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.switchToggle:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.switchToggle:checked {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.switchToggle:checked::after {
+  background: #fff;
+  /* 42 wide - 2px border - 3px inset each side - 16px knob = 18px of travel */
+  transform: translate(18px, -50%);
+}
+
+.switchToggle:focus,
+.switchToggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+}
+
+.switchToggle:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+/* Small spinning icon (e.g. a file link while its signed URL loads). */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.spin {
+    animation: spin 0.9s linear infinite;
+}
+
+/* Page-level error message (used by many pages as className="errorMessage"). */
+.errorMessage {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--tone-fca5a5);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: 10px;
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.successMessage {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  border-radius: 10px;
+  background: rgba(34, 197, 94, 0.08);
+}
