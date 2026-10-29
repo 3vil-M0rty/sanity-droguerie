@@ -102,6 +102,8 @@ const Pos = lazy(() => import('./pages/pos/Pos'))
 const PosSessions = lazy(() => import('./pages/pos/PosSessions'))
 const PosSessionDetail = lazy(() => import('./pages/pos/PosSessions').then((m) => ({ default: m.PosSessionDetail })))
 const Ticket = lazy(() => import('./pages/pos/Ticket'))
+const Labels = lazy(() => import('./pages/stock/Labels'))
+const LabelsPrint = lazy(() => import('./pages/stock/LabelsPrint'))
 // Features: accounting, WhatsApp, cheques & LCN, promotions, forecast, field app, portal
 const Accounting = lazy(() => import('./pages/fx/Accounting'))
 const Portfolio = lazy(() => import('./pages/fx/Portfolio'))
@@ -183,6 +185,8 @@ export default function App() {
               <Route path="/portail/*" element={<PortalApp />} />
               {/* 80 mm counter ticket: its own page (no sidebar) so it prints alone */}
               <Route path="/pos/tickets/:id" element={<ProtectedRoute><Ticket /></ProtectedRoute>} />
+              {/* A4 sheet of QR price labels: own page so it prints alone */}
+              <Route path="/etiquettes" element={<ProtectedRoute permission={canManageInventory}><LabelsPrint /></ProtectedRoute>} />
 
               {/* Everything under here is auth-gated AND shares the sidebar */}
               <Route
@@ -325,6 +329,7 @@ export default function App() {
                 <Route path="/stock/articles/new" element={stockRoute(<ArticleDetail />)} />
                 <Route path="/stock/articles/:id" element={stockRoute(<ArticleDetail />)} />
                 <Route path="/stock/levels" element={stockRoute(<StockLevels />)} />
+                <Route path="/stock/labels" element={stockRoute(<Labels />)} />
                 <Route path="/stock/movements" element={stockRoute(<Movements />)} />
                 <Route path="/stock/transfers" element={stockRoute(<Transfers />)} />
                 <Route path="/stock/counts" element={stockRoute(<Counts />)} />

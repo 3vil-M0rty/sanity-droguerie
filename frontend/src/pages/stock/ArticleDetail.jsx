@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Package, Save, Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Layers, ImagePlus } from "lucide-react";
+import { Package, Save, Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Layers, ImagePlus, QrCode } from "lucide-react";
 
 import { useI18n } from "../../hooks/useI18n";
 import { useCan } from "../../hooks/useCan";
@@ -210,6 +210,9 @@ export default function ArticleDetail() {
       <PageTop crumbs={[{ label: t("ng.menu.stock"), href: "/stock/articles" }, { label: t("ng.articles.title"), href: "/stock/articles" }, { label: isNew ? t("ng.articles.new") : form.name }]}
         icon={Package} title={isNew ? t("ng.articles.new") : form.name}
         subtitle={article ? `${article.internalReference || ""}${article.brand ? ` · ${article.brand.name}` : ""}${article.category ? ` · ${article.category.name}` : ""}` : ""}>
+        {!isNew && !form.isVariantParent && (
+          <button type="button" className="btnEdit" onClick={() => navigate(`/stock/labels?add=${id}`)}><QrCode size={15} /> {t("labels.one")}</button>
+        )}
         {!isNew && can("inventory.articles.adjust") && !form.isService && !form.isVariantParent && (
           <>
             <button type="button" className="btnEdit" onClick={() => setAdjust({ type: "in", warehouse: "", quantity: "", unitCost: "", reason: "" })}><ArrowDownToLine size={15} /> {t("ng.stock.in")}</button>

@@ -5,6 +5,7 @@
 .scanIcon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--color-text-tertiary); pointer-events: none; }
 .scan input { flex: 1; min-width: 0; font-size: 1.05rem; padding: 10px 12px 10px 44px; }
 .scanField:focus-within .scanIcon { color: var(--color-text-primary); }
+.cameraBtn { flex: 0 0 auto; }
 .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); gap: 8px; margin-bottom: 12px; }
 .result { padding: 10px; text-align: left; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-secondary); color: var(--color-text-primary); cursor: pointer; font-size: 0.82rem; }
 .result:hover { border-color: #6ea8fe; }
@@ -61,7 +62,9 @@
 @media (max-width: 600px) {
   .scan { flex-wrap: wrap; }
   .scanField { flex: 1 1 100%; }
-  .scan > button { flex: 1 1 100%; justify-content: center; min-height: 44px; }
+  .scan > button { flex: 1 1 0; justify-content: center; min-height: 48px; }
+  /* On a phone the camera is the main way to scan: make it stand out. */
+  .cameraBtn { color: var(--color-inverse-fg); background: var(--color-inverse-bg); border-color: var(--color-inverse-bg); }
   .results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .result { min-height: 56px; }
   .cart input { width: 56px; }

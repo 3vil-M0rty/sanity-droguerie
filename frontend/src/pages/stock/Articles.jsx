@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Package, Plus, AlertTriangle, LayoutGrid, List, Search, ChevronRight, Home, ShoppingCart, Truck, Tags, Barcode } from "lucide-react";
+import { Package, Plus, AlertTriangle, LayoutGrid, List, Search, ChevronRight, Home, ShoppingCart, Truck, Tags, QrCode } from "lucide-react";
 
 import { useI18n } from "../../hooks/useI18n";
 import { useCan } from "../../hooks/useCan";
@@ -15,7 +15,6 @@ import { cached, peek, prefetch, keyOf } from "../../utils/queryCache";
 import { useCompanyPicker, useWarehouses, warehouseOptions, PageTop, CompanyFilter, formatMoney, fmtQty, errorText } from "../negoce/common";
 import ArticleVisual from "./ArticleVisual";
 import { PurchaseRequestModal, SupplierPricesModal, SellingPricesModal } from "./ArticleModals";
-import LabelsModal from "./LabelsModal";
 import styles from "../purchasing/Purchasing.module.css";
 import s from "../sales/Sales.module.css";
 import c from "./Catalog.module.css";
@@ -148,8 +147,8 @@ export default function Articles({ readOnly = false }) {
         {!readOnly && can("inventory.articles.create") && companyId && (
           <button type="button" className="btnPrimary" onClick={() => navigate("/stock/articles/new", { state: { companyId, category: family } })}><Plus size={15} /> {t("ng.articles.new")}</button>
         )}
+        {companyId && <button type="button" className="btnEdit" onClick={() => navigate("/stock/labels")}><QrCode size={15} /> {t("labels.menu")}</button>}
         {!readOnly && can("inventory.articles.import") && companyId && <ImportButton t={t} kind="articles" companyId={companyId} onDone={() => load()} />}
-        {companyId && <button type="button" className="btnEdit" onClick={() => setModal({ kind: "labels" })}><Barcode size={15} /> {t("ng.catalog.labels.button")}</button>}
       </PageTop>
 
       <div className={c.bar}>
@@ -303,7 +302,6 @@ export default function Articles({ readOnly = false }) {
 
       {modal?.kind === "request" && <PurchaseRequestModal article={modal.article} companyId={companyId} onClose={() => setModal(null)} />}
       {modal?.kind === "suppliers" && <SupplierPricesModal article={modal.article} onClose={() => setModal(null)} />}
-      {modal?.kind === "labels" && <LabelsModal companyId={companyId} initial={family || search ? rows : []} onClose={() => setModal(null)} />}
       {modal?.kind === "selling" && <SellingPricesModal article={modal.article} hidden={hidden} onClose={() => setModal(null)} />}
     </div>
   );

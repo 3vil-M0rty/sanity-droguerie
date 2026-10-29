@@ -11,7 +11,8 @@ const LANGUAGE_META = {
   de: { code: 'DE', name: 'Deutsch' },
 };
 
-export default function LanguageSwitcher() {
+// `compact`: globe icon only (collapsed sidebar); the list opens to the right.
+export default function LanguageSwitcher({ compact = false }) {
   const { language, setLanguage, supportedLanguages } = useContext(I18nContext);
 
   const [open, setOpen] = useState(false);
@@ -80,7 +81,21 @@ export default function LanguageSwitcher() {
         onKeyDown={onKeyDown}
         aria-haspopup="listbox"
         aria-expanded={open}
-        style={{
+        aria-label={compact ? meta.name : undefined}
+        title={compact ? meta.name : undefined}
+        style={compact ? {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '36px',
+          height: '36px',
+          padding: 0,
+          background: open ? 'var(--color-bg-tertiary)' : 'transparent',
+          border: 'none',
+          borderRadius: '6px',
+          color: 'var(--color-text-secondary)',
+          cursor: 'pointer',
+        } : {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
@@ -96,17 +111,23 @@ export default function LanguageSwitcher() {
           transition: 'background-color 0.15s ease',
         }}
       >
-        <Globe size={14} color="#999999" strokeWidth={1.75} />
-        <span>{meta.name}</span>
-        <ChevronDown
-          size={14}
-          color="#808080"
-          strokeWidth={2}
-          style={{
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.15s ease',
-          }}
-        />
+        {compact ? (
+          <Globe size={16} strokeWidth={1.75} />
+        ) : (
+          <>
+            <Globe size={14} color="#999999" strokeWidth={1.75} />
+            <span>{meta.name}</span>
+            <ChevronDown
+              size={14}
+              color="#808080"
+              strokeWidth={2}
+              style={{
+                transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.15s ease',
+              }}
+            />
+          </>
+        )}
       </button>
 
       {open && (
@@ -114,8 +135,9 @@ export default function LanguageSwitcher() {
           role="listbox"
           style={{
             position: 'absolute',
-            bottom: 'calc(100% + 6px)',
-            left: 0,
+            ...(compact
+              ? { bottom: 0, left: 'calc(100% + 10px)' }
+              : { bottom: 'calc(100% + 6px)', left: 0 }),
             minWidth: '180px',
             margin: 0,
             padding: '4px',

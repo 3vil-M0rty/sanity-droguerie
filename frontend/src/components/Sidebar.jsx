@@ -389,6 +389,7 @@ export default function Sidebar() {
       subsections: [
         { label: t("sidebar.articles"), href: "/stock/articles", permission: (u) => !Array.isArray(u?.permissions) || canAny(u, ["inventory.articles.view"]) },
         { label: t("sidebar.stockLevels"), href: "/stock/levels", permission: (u) => !Array.isArray(u?.permissions) || canAny(u, ["inventory.articles.view"]) },
+        { label: t("labels.menu"), href: "/stock/labels", permission: (u) => !Array.isArray(u?.permissions) || canAny(u, ["inventory.articles.view"]) },
         { label: t("sidebar.stockMovements"), href: "/stock/movements", permission: (u) => !Array.isArray(u?.permissions) || canAny(u, ["inventory.articles.view"]) },
         { label: t("sidebar.transfers"), href: "/stock/transfers", permission: (u) => !Array.isArray(u?.permissions) || canAny(u, ["inventory.transfers.view"]) },
         { label: t("sidebar.counts"), href: "/stock/counts", permission: (u) => !Array.isArray(u?.permissions) || canAny(u, ["inventory.counts.view"]) },
@@ -498,6 +499,7 @@ export default function Sidebar() {
       permission: canManageInventory,
       subsections: [
         { label: t("sidebar.articles"), href: "/stock/articles", permission: (u) => canAny(u, ["inventory.articles.view"]) },
+        { label: t("labels.menu"), href: "/stock/labels", permission: (u) => canAny(u, ["inventory.articles.view"]) },
         { label: t("sidebar.stockMovements"), href: "/stock/movements", permission: (u) => canAny(u, ["inventory.articles.view"]) },
         { label: t("sidebar.counts"), href: "/stock/counts", permission: (u) => canAny(u, ["inventory.counts.view"]) },
         { label: t("sidebar.articleCategories"), href: "/stock/families", permission: (u) => canAny(u, ["inventory.categories.view", "inventory.categories.edit"]) },
@@ -905,7 +907,7 @@ export default function Sidebar() {
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
 
-            {isOpen && <LanguageSwitcher />}
+            <LanguageSwitcher compact={!isOpen} />
           </div>
 
           {/* ====================================================

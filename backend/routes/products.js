@@ -24,8 +24,6 @@ const { logAudit } = require("../services/auditLogger");
 const { attachTranslationRoutes } = require("../utils/translationRoutes");
 const { withDescendants } = require("../services/categoryTree");
 const { searchFilter } = require("../utils/searchTokens");
-const { labelsPdf, assignInStoreCodes, FORMATS } = require("../services/labelPdfService");
-const { has } = require("../services/permissionService");
 
 /**
  * ============================================================
@@ -38,9 +36,6 @@ const { has } = require("../services/permissionService");
  * GET    /suggestions?companyId=&q=&limit=   autocomplete for pickers (≤ 20)
  * GET    /brief?companyId=&ids=a,b           the same light fields for known ids (≤ 100)
  * GET    /lookup?companyId=&code=            barcode scan → { product, unit, unitFactor }
- * POST   /labels { companyId, items: [{ product, copies }], format: roll|a4, skip?, shop? }
- *                                             barcode labels (PDF); articles without a code
- *                                             get an in-store EAN-13 (with edit permission)
  * GET    /:id                                 + stock per warehouse, lots, level prices
  * GET    /:id/price?customer=&unit=           price proposed for a customer
  * GET    /:id/supplier-prices                 every supplier's price: catalogue, purchase history, quotes
@@ -196,16 +191,22 @@ router.get("/brief", async (req, res) => {
   }
 });
 
-/** Barcode scan: the base unit's code or one of the packagings'. */
+/**
+ * Barcode / QR scan: the base unit's code, one of the packagings', the
+ * internal reference, or — for printed QR labels of an article that has
+ * neither a barcode nor a reference — the article's own id.
+ */
 router.get("/lookup", async (req, res) => {
   try {
     const { companyId } = req.query;
     const code = String(req.query.code || "").trim();
     if (!isId(companyId) || !code) return bad(res, "companyId and code are required");
+    const or = [{ barcode: code }, { "packagings.barcode": code }, { internalReference: code.toUpperCase() }];
+    if (/^[0-9a-f]{24}$/i.test(code)) or.push({ _id: code });
     const product = await Product.findOne({
       company: companyId,
       isVariantParent: { $ne: true },
-      $or: [{ barcode: code }, { "packagings.barcode": code }, { internalReference: code.toUpperCase() }],
+      $or: or,
     }).populate("brand", "name");
     if (!product) return bad(res, "No article with this code", 404);
     const pack = (product.packagings || []).find((p) => p.barcode === code);
@@ -213,37 +214,6 @@ router.get("/lookup", async (req, res) => {
   } catch (error) {
     console.error("GET product lookup error:", error);
     res.status(500).json({ success: false, message: "Error looking up the code", error: error.message });
-  }
-});
-
-// ---------------------------------------------------------------- labels
-router.post("/labels", async (req, res) => {
-  try {
-    const { companyId, format = "roll", skip = 0 } = req.body || {};
-    const items = Array.isArray(req.body?.items) ? req.body.items.filter((i) => isId(i?.product)) : [];
-    if (!isId(companyId)) return bad(res, "companyId is required");
-    if (!items.length) return bad(res, "Choose at least one article");
-    if (items.length > 1000) return bad(res, "At most 1000 articles per print");
-    if (!FORMATS[format]) return bad(res, "Unknown label format");
-    const products = await Product.find({ company: companyId, _id: { $in: items.map((i) => i.product) } })
-      .select("name barcode internalReference sellingPrice vatRate").lean();
-    if (!products.length) return bad(res, "No article found", 404);
-    if (has(req.user, "inventory.articles.edit")) await assignInStoreCodes(Product, companyId, products);
-    const byId = new Map(products.map((p) => [String(p._id), p]));
-    const rows = items.filter((i) => byId.has(String(i.product))).map((i) => ({ product: byId.get(String(i.product)), copies: i.copies }));
-    let shop = "";
-    if (req.body?.shop !== false) {
-      const Company = require("../models/Company");
-      shop = (await Company.findById(companyId).select("name").lean())?.name || "";
-    }
-    const doc = await labelsPdf(rows, format, { shop, skip });
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", 'inline; filename="etiquettes.pdf"');
-    doc.pipe(res);
-    doc.end();
-  } catch (error) {
-    console.error("POST product labels error:", error);
-    if (!res.headersSent) res.status(500).json({ success: false, message: "Error printing the labels", error: error.message });
   }
 });
 

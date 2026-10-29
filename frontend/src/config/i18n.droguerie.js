@@ -46,6 +46,23 @@ const fr = {
     platform: { edition: "Édition", editionSanity: "Sanity (ERP complet)", editionDroguerie: "Sanity Droguerie (boutique)", priceList: "Grille Droguerie (PDF)" },
     methods: { especes: "Espèces", cheque: "Chèque", virement: "Virement", carte: "Carte", effet: "Effet (LCN)" },
   },
+  scanner: {
+    title: "Scanner avec la caméra", short: "Caméra", hint: "Placez le QR code ou le code-barres dans le cadre",
+    starting: "Ouverture de la caméra…", unknown: "Code inconnu", torch: "Lampe", done: "Terminé",
+    denied: "Accès à la caméra refusé. Autorisez-le dans les réglages du navigateur (iPhone : Réglages › Safari › Caméra).",
+    noCamera: "Caméra indisponible sur cet appareil (le site doit être ouvert en https).",
+  },
+  labels: {
+    menu: "Étiquettes QR", one: "Étiquette QR", title: "Étiquettes QR",
+    subtitle: "Imprimez des étiquettes prix avec QR code, puis scannez-les à la caisse avec la caméra du téléphone.",
+    add: "Ajouter un article…", addAll: "Tout le catalogue", clear: "Vider", copies: "Exemplaires",
+    format: "Format", formatMedium: "Moyennes — 63,5 × 38,1 mm (21 par feuille A4)", formatSmall: "Petites — 38,1 × 21,2 mm (65 par feuille A4)",
+    showPrice: "Afficher le prix", print: "Imprimer", empty: "Ajoutez les articles à étiqueter.",
+    count: "{labels} étiquette(s) · {pages} feuille(s) A4",
+    codeHint: "Le QR code contient le code-barres de l'article, sinon sa référence, sinon son identifiant : la caisse reconnaît les trois.",
+    printHint: "Imprimez en taille réelle (100 %), sans marges ajoutées par le navigateur.",
+    loading: "Préparation des étiquettes…", noArticles: "Aucun article à imprimer.", tooMany: "500 articles au maximum par impression.",
+  },
   ng: { pos: { divers: "Article divers", diversRef: "Divers", diversDescription: "Description (ex. clés reproduites, peinture teintée…)", diversAdd: "Ajouter", methods: { effet: "Effet (LCN)" } } },
 };
 
@@ -91,6 +108,23 @@ const en = {
     platform: { edition: "Edition", editionSanity: "Sanity (full ERP)", editionDroguerie: "Sanity Droguerie (shop)", priceList: "Droguerie price list (PDF)" },
     methods: { especes: "Cash", cheque: "Cheque", virement: "Transfer", carte: "Card", effet: "Bill of exchange (LCN)" },
   },
+  scanner: {
+    title: "Scan with the camera", short: "Camera", hint: "Point at the QR code or barcode",
+    starting: "Opening the camera…", unknown: "Unknown code", torch: "Torch", done: "Done",
+    denied: "Camera access was refused. Allow it in the browser settings (iPhone: Settings › Safari › Camera).",
+    noCamera: "No camera available on this device (the site must be opened over https).",
+  },
+  labels: {
+    menu: "QR labels", one: "QR label", title: "QR labels",
+    subtitle: "Print price labels with a QR code, then scan them at the till with the phone's camera.",
+    add: "Add an article…", addAll: "Whole catalogue", clear: "Clear", copies: "Copies",
+    format: "Format", formatMedium: "Medium — 63.5 × 38.1 mm (21 per A4 sheet)", formatSmall: "Small — 38.1 × 21.2 mm (65 per A4 sheet)",
+    showPrice: "Show the price", print: "Print", empty: "Add the articles to label.",
+    count: "{labels} label(s) · {pages} A4 sheet(s)",
+    codeHint: "The QR code holds the article's barcode, else its reference, else its id: the till recognises all three.",
+    printHint: "Print at actual size (100%), without margins added by the browser.",
+    loading: "Preparing the labels…", noArticles: "No article to print.", tooMany: "At most 500 articles per print.",
+  },
   ng: { pos: { divers: "Misc. item", diversRef: "Misc.", diversDescription: "Description (e.g. keys cut, tinted paint…)", diversAdd: "Add", methods: { effet: "Bill (LCN)" } } },
 };
 
@@ -135,6 +169,23 @@ const ar = {
     settings: { vatRegistered: "خاضع للضريبة على القيمة المضافة (أزل العلامة إذا كان المتجر غير خاضع: السلع الجديدة بـ 0 %)" },
     platform: { edition: "النسخة", editionSanity: "Sanity (النظام الكامل)", editionDroguerie: "Sanity Droguerie (المتجر)", priceList: "لائحة أثمنة Droguerie (PDF)" },
     methods: { especes: "نقدا", cheque: "شيك", virement: "تحويل", carte: "بطاقة", effet: "كمبيالة" },
+  },
+  scanner: {
+    title: "المسح بالكاميرا", short: "الكاميرا", hint: "وجّه الكاميرا نحو رمز QR أو الباركود",
+    starting: "جارٍ فتح الكاميرا…", unknown: "رمز غير معروف", torch: "المصباح", done: "تم",
+    denied: "تم رفض الوصول إلى الكاميرا. اسمح به في إعدادات المتصفح (آيفون: الإعدادات › سفاري › الكاميرا).",
+    noCamera: "لا توجد كاميرا متاحة على هذا الجهاز (يجب فتح الموقع عبر https).",
+  },
+  labels: {
+    menu: "ملصقات QR", one: "ملصق QR", title: "ملصقات QR",
+    subtitle: "اطبع ملصقات الأسعار برمز QR، ثم امسحها في الصندوق بكاميرا الهاتف.",
+    add: "إضافة سلعة…", addAll: "كل الكتالوج", clear: "إفراغ", copies: "النسخ",
+    format: "الحجم", formatMedium: "متوسطة — 63.5 × 38.1 مم (21 في ورقة A4)", formatSmall: "صغيرة — 38.1 × 21.2 مم (65 في ورقة A4)",
+    showPrice: "إظهار الثمن", print: "طباعة", empty: "أضف السلع المراد طباعة ملصقاتها.",
+    count: "{labels} ملصق · {pages} ورقة A4",
+    codeHint: "يحتوي رمز QR على باركود السلعة، أو مرجعها، أو معرّفها: الصندوق يتعرف على الثلاثة.",
+    printHint: "اطبع بالحجم الحقيقي (100%) دون هوامش يضيفها المتصفح.",
+    loading: "جارٍ تحضير الملصقات…", noArticles: "لا توجد سلع للطباعة.", tooMany: "500 سلعة كحد أقصى في كل طباعة.",
   },
   ng: { pos: { divers: "سلعة متنوعة", diversRef: "متنوع", diversDescription: "الوصف (مثلا: نسخ مفاتيح، صباغة ممزوجة…)", diversAdd: "إضافة", methods: { effet: "كمبيالة" } } },
 };

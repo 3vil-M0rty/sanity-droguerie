@@ -82,6 +82,13 @@ describe("négoce flow", () => {
     const scan = await get(`/api/products/lookup?companyId=${companyId}&code=4005176000018`);
     expect(scan.body.data.unit).toBe("Carton");
     expect(scan.body.data.unitFactor).toBe(6);
+
+    // A printed QR label of an article with no barcode carries its id.
+    const byId = await get(`/api/products/lookup?companyId=${companyId}&code=${ids.mitigeur}`);
+    expect(byId.body.data.product.name).toBe("Mitigeur lavabo Eurosmart");
+    expect(byId.body.data.unit).toBe("pièce");
+    const otherId = "0123456789abcdef01234567";
+    expect((await get(`/api/products/lookup?companyId=${companyId}&code=${otherId}`)).status).toBe(404);
   });
 
   it("purchase receptions recompute the CMUP", async () => {

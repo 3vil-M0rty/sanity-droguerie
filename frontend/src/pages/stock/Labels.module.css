@@ -1,0 +1,303 @@
+/* ---------- Selection page (Labels.jsx) ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 16px;
+  align-items: start;
+}
+
+.panel {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-bg-primary);
+}
+
+.panelTitle {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.picker {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 16px;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+}
+
+.empty p { margin: 0; }
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.item:last-child { border-bottom: 0; }
+
+.itemText {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.itemText strong {
+  overflow: hidden;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemText small {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemText code {
+  font-size: 0.72rem;
+  color: var(--color-text-tertiary);
+}
+
+.copies {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--color-text-tertiary);
+}
+
+.copies input {
+  width: 64px;
+  padding: 7px 8px;
+  text-align: center;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.option input { display: none; }
+
+.optionOn {
+  border-color: var(--color-info);
+  color: var(--color-text-primary);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.sample {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: #fff;
+  color: #111;
+}
+
+.sample_medium { width: 44px; height: 27px; }
+.sample_small { width: 30px; height: 17px; }
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.summary {
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.hint {
+  margin: 0 0 8px;
+  font-size: 0.76rem;
+  color: var(--color-text-tertiary);
+}
+
+.printBtn { width: 100%; margin-top: 6px; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .addRow > button { flex: 1 1 auto; min-height: 44px; }
+  .item { flex-wrap: wrap; }
+  .itemText { flex-basis: 100%; }
+  .copies { margin-left: auto; }
+}
+
+/* ---------- Print sheet (LabelsPrint.jsx) ---------- */
+.loading {
+  padding: 20px;
+  color: #555;
+}
+
+.printPage {
+  min-height: 100vh;
+  padding: 64px 0 24px;
+  background: #e5e7eb;
+  color: #000;
+}
+
+.printBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #111827;
+  color: #e5e7eb;
+  font-size: 0.82rem;
+}
+
+.printBar span { margin-right: auto; }
+
+.printBarBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #fff;
+  color: #111;
+  font-weight: 600;
+}
+
+.sheet {
+  display: grid;
+  align-content: start;
+  width: 210mm;
+  height: 297mm;
+  margin: 0 auto 16px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  page-break-after: always;
+  break-after: page;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  outline: 1px dashed #d1d5db; /* cut guide on screen only */
+  font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  color: #000;
+}
+
+.label_medium { gap: 2.5mm; padding: 2.5mm 2.5mm 2.5mm 3mm; }
+.label_small { gap: 1.2mm; padding: 1.2mm 1.2mm 1.2mm 1.5mm; }
+
+.qr {
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.qr svg { width: 100%; height: 100%; }
+.label_medium .qr { width: 24mm; height: 24mm; }
+.label_small .qr { width: 15mm; height: 15mm; }
+
+.labelText {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1mm;
+}
+
+.labelName {
+  display: -webkit-box;
+  overflow: hidden;
+  font-weight: 700;
+  line-height: 1.15;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+.label_medium .labelName { font-size: 9pt; }
+.label_small .labelName { font-size: 6pt; -webkit-line-clamp: 2; }
+
+/* Long prices wrap their currency to a second line rather than being cut. */
+.labelPrice {
+  font-weight: 800;
+  line-height: 1.05;
+  overflow-wrap: normal;
+}
+
+.label_medium .labelPrice { font-size: 13pt; }
+.label_small .labelPrice { font-size: 8pt; }
+
+.labelCode {
+  overflow: hidden;
+  font-family: "Courier New", monospace;
+  font-size: 6.5pt;
+  color: #444;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media print {
+  @page { size: A4; margin: 0; }
+
+  .printPage { min-height: 0; padding: 0; background: #fff; }
+  .printBar { display: none; }
+  .sheet { margin: 0; box-shadow: none; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  .label { outline: 0; }
+}

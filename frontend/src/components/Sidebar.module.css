@@ -483,6 +483,19 @@
   justify-content: center;
 }
 
+/* Collapsed (64px): the footer buttons stack instead of squeezing
+   side by side, and the divider spans the full width. */
+.sidebarClosed .footer {
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+}
+
+.sidebarClosed .footerBtn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
 
 /* ============================================================
    DESKTOP TOGGLE

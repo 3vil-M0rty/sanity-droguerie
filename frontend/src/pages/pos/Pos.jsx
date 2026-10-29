@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShoppingCart, ScanBarcode, Trash2, LogIn, LogOut, Banknote, CreditCard, Printer, UserRound, PackagePlus, Landmark, ArrowLeftRight, BookOpen } from "lucide-react";
+import { ShoppingCart, ScanBarcode, Trash2, LogIn, LogOut, Banknote, CreditCard, Printer, UserRound, PackagePlus, Landmark, ArrowLeftRight, BookOpen, Camera } from "lucide-react";
 import { useI18n } from "../../hooks/useI18n";
 import { useCan } from "../../hooks/useCan";
 import CustomSelect from "../../components/useful/CustomSelect";
@@ -12,6 +12,9 @@ import styles from "../purchasing/Purchasing.module.css";
 import p from "./Pos.module.css";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+// The camera scanner (and its QR decoder) only loads when it is opened.
+const CameraScanner = lazy(() => import("../../components/useful/CameraScanner"));
+
 const METHODS = ["especes", "carte", "cheque", "virement", "credit"];
 const METHOD_ICONS = { especes: Banknote, carte: CreditCard, cheque: Landmark, virement: ArrowLeftRight, credit: BookOpen };
 
@@ -40,6 +43,7 @@ export default function Pos() {
   const [error, setError] = useState("");
   const [lastSale, setLastSale] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [camera, setCamera] = useState(false);
   const scanRef = useRef(null);
   // "Article divers": something sold without an article card (a key cut,
   // paint mixed to order…) — a description and a TTC price, no stock.
@@ -99,6 +103,18 @@ export default function Pos() {
       if (results.length === 1) await add(results[0]);
       else if (!results.length) setError(t("ng.common.notFound"));
     }
+  };
+
+  // Phone camera: each code read goes straight onto the ticket.
+  const onCameraCode = async (code) => {
+    let found;
+    try {
+      found = await lookupBarcode(companyId, code);
+    } catch {
+      throw new Error(`${t("ng.common.notFound")} (${code})`);
+    }
+    await add(found.product, found.unit);
+    return `✓ ${found.product.name}`;
   };
 
   const lineTTC = (l) => r2(l.quantity * l.unitPrice * (1 - (l.discount || 0) / 100) * (1 + l.vatRate / 100));
@@ -188,8 +204,14 @@ export default function Pos() {
               <ScanBarcode size={20} className={p.scanIcon} aria-hidden="true" />
               <input ref={scanRef} autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("ng.pos.scanPlaceholder")} />
             </span>
+            <button type="button" className={`btnEdit ${p.cameraBtn}`} onClick={() => setCamera(true)} title={t("scanner.title")} aria-label={t("scanner.title")}><Camera size={17} /><span>{t("scanner.short")}</span></button>
             <button type="button" className="btnEdit" onClick={() => setDivers(divers ? null : { description: "", price: "", quantity: "1" })}><PackagePlus size={15} /> {t("ng.pos.divers")}</button>
           </form>
+          {camera && (
+            <Suspense fallback={null}>
+              <CameraScanner title={t("ng.pos.title")} onCode={onCameraCode} onClose={() => { setCamera(false); scanRef.current?.focus(); }} />
+            </Suspense>
+          )}
           {divers && (
             <form className={p.divers} onSubmit={(e) => { e.preventDefault(); addDivers(); }}>
               <input autoFocus placeholder={t("ng.pos.diversDescription")} value={divers.description} onChange={(e) => setDivers({ ...divers, description: e.target.value })} />
